@@ -102,6 +102,7 @@ private:
   Eigen::Vector3d start_pt_, start_vel_, start_acc_, start_yaw_;  // start state
   Eigen::Vector3d end_pt_, end_vel_;                              // target state
   int current_wp_;
+  ros::Time next_planning_attempt_;
 
   /* goal telemetry (does not participate in planner decisions) */
   PlannerStatusTracker goal_status_tracker_;

@@ -202,6 +202,8 @@
               /tf_static
               /gazebo/model_states
               /Odometry
+              /freedom/static_pointcloud
+              /sdf_map/occupancy_inflate
               /mavros/vision_pose/pose
               /mavros/imu/data
               /livox/imu

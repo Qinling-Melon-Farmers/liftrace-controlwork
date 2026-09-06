@@ -118,6 +118,7 @@ void KinoReplanFSM::waypointCallback(const geometry_msgs::PoseStamped msg) {
   // contract.  A discrete mission goal must therefore end at rest; deriving
   // +x motion from the default identity quaternion bends narrow-door paths.
   end_vel_.setZero();
+  next_planning_attempt_ = ros::Time(0);
 
   geometry_msgs::PoseStamped effective_goal = msg;
   effective_goal.pose.position.x = end_pt_(0);
@@ -200,6 +201,7 @@ void KinoReplanFSM::execFSMCallback(const ros::TimerEvent& e) {
     }
 
     case GEN_NEW_TRAJ: {
+      if (ros::Time::now() < next_planning_attempt_) return;
       start_pt_  = odom_pos_;
       start_vel_ = odom_vel_;
       start_acc_.setZero();
@@ -262,6 +264,7 @@ void KinoReplanFSM::execFSMCallback(const ros::TimerEvent& e) {
     }
 
     case REPLAN_TRAJ: {
+      if (ros::Time::now() < next_planning_attempt_) return;
       LocalTrajData* info     = &planner_manager_->local_data_;
       start_pt_  = odom_pos_;
       start_vel_ = odom_vel_;
@@ -377,6 +380,8 @@ void KinoReplanFSM::checkCollisionCallback(const ros::TimerEvent& e) {
 bool KinoReplanFSM::callKinodynamicReplan() {
   bool plan_success =
       planner_manager_->kinodynamicReplan(start_pt_, start_vel_, start_acc_, end_pt_, end_vel_);
+  next_planning_attempt_ = plan_success ? ros::Time(0) :
+      ros::Time::now() + ros::Duration(min_replan_interval_);
 
   if (plan_success) {
 

@@ -92,21 +92,51 @@ int KinodynamicAstar::search(Eigen::Vector3d start_pt, Eigen::Vector3d start_v, 
     // std::cout<<"near_end = "<<near_end<<" = "<< abs(cur_node->index(0) - end_index(0))<<" , "
     // << abs(cur_node->index(1) - end_index(1))<<" , "<< abs(cur_node->index(2) - end_index(2))<<", tolerance = "<<tolerance<<std::endl;
 
-    // A failed short connector is not proof that the goal is unreachable.
-    // Continue expanding around the obstruction, including when the start
-    // already lies in the near-goal voxel band.
-    if (near_end) {
-      estimateHeuristic(cur_node->state, end_state, time_to_goal);
-      if (computeShotTraj(cur_node->state, end_state, time_to_goal)) {
-        retrievePath(cur_node);
-        return REACH_END;
+    if (reach_horizon || near_end)
+    {
+      terminate_node = cur_node;
+      retrievePath(terminate_node);
+      if (near_end)
+      {
+        // Check whether shot traj exist
+        estimateHeuristic(cur_node->state, end_state, time_to_goal);
+        computeShotTraj(cur_node->state, end_state, time_to_goal);
+        if (init_search)
+          ROS_ERROR("Shot in first search loop!");
       }
     }
-    if (reach_horizon) {
-      retrievePath(cur_node);
-      return REACH_HORIZON;
+    if (reach_horizon)
+    {
+      if (is_shot_succ_)
+      {
+        std::cout << "reach end" << std::endl;
+        return REACH_END;
+      }
+      else
+      {
+        std::cout << "reach horizon" << std::endl;
+        return REACH_HORIZON;
+      }
     }
 
+    if (near_end)
+    {
+      if (is_shot_succ_)
+      {
+        std::cout << "reach end" << std::endl;
+        return REACH_END;
+      }
+      else if (cur_node->parent != NULL)
+      {
+        std::cout << "near end" << std::endl;
+        return NEAR_END;
+      }
+      else
+      {
+        std::cout << "no path" << std::endl;
+        return NO_PATH;
+      }
+    }
     open_set_.pop();
     cur_node->node_state = IN_CLOSE_SET;
     iter_num_ += 1;
@@ -190,7 +220,7 @@ int KinodynamicAstar::search(Eigen::Vector3d start_pt, Eigen::Vector3d start_v, 
           double dt = tau * double(k) / double(check_num_);
           stateTransit(cur_state, xt, um, dt);
           pos = xt.head(3);
-          if (edt_environment_->sdf_map_->getInflateOccupancy(pos) != 0 )
+          if (edt_environment_->sdf_map_->getInflateOccupancy(pos) == 1 )
           {
             is_occ = true;
             break;
@@ -410,10 +440,9 @@ bool KinodynamicAstar::computeShotTraj(Eigen::VectorXd state1, Eigen::VectorXd s
   Tm << 0, 1, 0, 0, 0, 0, 2, 0, 0, 0, 0, 3, 0, 0, 0, 0;
 
   /* ---------- forward checking of trajectory ---------- */
-  const int samples = std::max(10, int(std::ceil(t_d / 0.02)));
-  for (int sample = 1; sample <= samples; ++sample)
+  double t_delta = t_d / 10;
+  for (double time = t_delta; time <= t_d; time += t_delta)
   {
-    const double time = t_d * double(sample) / samples;
     t = VectorXd::Zero(4);
     for (int j = 0; j < 4; j++)
       t(j) = pow(time, j);
@@ -441,7 +470,7 @@ bool KinodynamicAstar::computeShotTraj(Eigen::VectorXd state1, Eigen::VectorXd s
     // if (edt_environment_->evaluateCoarseEDT(coord, -1.0) <= margin_) {
     //   return false;
     // }
-    if (edt_environment_->sdf_map_->getInflateOccupancy(coord) != 0)
+    if (edt_environment_->sdf_map_->getInflateOccupancy(coord) == 1)
     {
       return false;
     }

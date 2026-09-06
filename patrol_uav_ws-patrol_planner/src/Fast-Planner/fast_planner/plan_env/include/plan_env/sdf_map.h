@@ -168,6 +168,7 @@ struct MappingData {
 };
 
 class SDFMap {
+  friend class KinodynamicSearchFixture;
 public:
   SDFMap() {}
   ~SDFMap() {}
