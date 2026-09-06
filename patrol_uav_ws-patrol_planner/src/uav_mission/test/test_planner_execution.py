@@ -61,6 +61,33 @@ class PlannerMotionExecutorTest(unittest.TestCase):
         self.assertEqual(out.planner_goal.decision_seq, 42)
         self.assertEqual(out.events[0].target_id, 0)
 
+    def test_retired_goal_geometry_cannot_fail_replacement(self):
+        for name in ("REPLANNING", "TRAJECTORY_READY", "CANCELLED"):
+            with self.subTest(status=name):
+                executor = self.make()
+                self.dispatch(executor)
+                self.dispatch(executor, decision(20, issued=BASE+1), BASE+1)
+                late = replace(status(1, 8, name, BASE+2),
+                    effective_goal=SequencedMotionGoal(8, goal(4.0)))
+                outcome = executor.apply_planner_status(late, BASE+2)
+                self.assertFalse(outcome.events)
+                self.assertFalse(outcome.snapshot.active_terminal)
+                accepted = executor.apply_planner_status(
+                    status(2, 20, "ACCEPTED", BASE+3), BASE+3)
+                self.assertTrue(accepted.accepted, accepted.reason)
+
+    def test_return_arrival_uses_original_portal(self):
+        executor = self.make()
+        self.dispatch(executor, decision(command="RETURN_HOME"))
+        now = BASE + 10_000_000
+        for seq, name in enumerate(("ACCEPTED", "TRAJECTORY_READY"), 1):
+            event = replace(status(seq, 8, name, now+seq),
+                effective_goal=SequencedMotionGoal(8, goal(1.3)))
+            self.assertTrue(executor.apply_planner_status(event, now+seq).accepted)
+        for stamp in (now+10_000_000, now+200_000_000):
+            outcome = executor.apply_odom(replace(odom(stamp), x=1.3), stamp)
+            self.assertEqual(outcome.reason, "arrival_threshold_not_met")
+
     def test_replay_conflict_and_gap(self):
         executor = self.make(); original = decision()
         self.dispatch(executor, original)

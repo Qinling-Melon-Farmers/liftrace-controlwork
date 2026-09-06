@@ -656,6 +656,21 @@ class PlannerMotionExecutor:
         if prepared is not None:
             return prepared
 
+        # Old planner work can finish after replacement or visual handoff.
+        # Its geometry/freshness cannot invalidate the current decision.
+        state = self._goals.get(event.goal_seq)
+        if state is None:
+            return self._outcome(False, "foreign_planner_goal_ignored")
+        if state.retired or state.handed_off:
+            if event.event_seq > self._last_planner_event_seq:
+                self._last_planner_event = event
+                self._last_planner_event_seq = event.event_seq
+            if (event.goal_seq == self._awaiting_cancel_goal_seq and
+                    event.status == "CANCELLED"):
+                self._awaiting_cancel_goal_seq = 0
+                return self._outcome(True, "replacement_cancel_confirmed")
+            return self._outcome(True, "retired_goal_event_ignored")
+
         prior = self._last_planner_event
         if prior is not None and prior.event_seq == event.event_seq:
             if prior == event:
@@ -978,7 +993,10 @@ class PlannerMotionExecutor:
             self._reset_dwell(state)
             return self._outcome(False, "odom_precedes_trajectory_ready")
 
-        goal = state.effective_goal
+        # Return legs encode door approach/clear geometry. Reaching an
+        # obstacle-adjusted surrogate must not advance the portal sequence.
+        goal = (state.decision.goal if state.decision.command in
+                ("RETURN_HOME", "ABORT") else state.effective_goal)
         if goal is None:
             return self._fail_closed("planner_effective_goal_missing")
         if sample.frame_id != goal.frame_id:
