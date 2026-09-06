@@ -1139,5 +1139,25 @@ class Vcl06GateReducerTest(unittest.TestCase):
                          "camera_init")
 
 
+class PhysicalPoseGateTest(unittest.TestCase):
+    def test_truth_height_cannot_be_hidden_by_estimator(self):
+        import threading
+        node = MODULE.NavigationVcl06AssertionNode.__new__(MODULE.NavigationVcl06AssertionNode)
+        node._truth_model = 'iris_mid360'
+        node._truth_world_offset = [-.493412, -1.772690, 0.0]
+        node._truth_last_ns = -1
+        node._lock = threading.Lock()
+        node._check_terminal = mock.Mock()
+        node.reducer = MODULE.Vcl06GateReducer()
+        message = SimpleNamespace(name=['iris_mid360'], pose=[SimpleNamespace(
+            position=SimpleNamespace(x=-.493412, y=-1.772690, z=4.2))])
+        with mock.patch.object(MODULE, 'rospy') as ros:
+            ros.Time.now.return_value.to_nsec.return_value = 1000000000
+            node._on_truth_pose(message)
+        self.assertIn('height_limit_violation', node.reducer.errors)
+        self.assertEqual(node.reducer.boundary_violations, 0)
+        self.assertAlmostEqual(node.reducer.max_observed_height, 4.2)
+
+
 if __name__ == "__main__":
     unittest.main()

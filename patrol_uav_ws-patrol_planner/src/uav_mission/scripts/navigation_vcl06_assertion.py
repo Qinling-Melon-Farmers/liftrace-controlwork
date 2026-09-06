@@ -22,6 +22,7 @@ try:  # Keep the reducer importable by system-Python unit tests.
     import rosgraph
     import rospy
     from geometry_msgs.msg import PoseStamped
+    from gazebo_msgs.msg import ModelStates
     from mavros_msgs.msg import ExtendedState, State
     from std_msgs.msg import String
     from patrol_control.msg import MissionCommand
@@ -1290,8 +1291,15 @@ class NavigationVcl06AssertionNode:
         for name in Vcl06GateReducer.REQUIRED_STATUSES:
             rospy.Subscriber(topics[name], String, self._status_callback(name),
                              queue_size=20)
-        rospy.Subscriber(topics["pose"], PoseStamped,
-                         self._on_pose, queue_size=1)
+        self._truth_model = rospy.get_param("~truth_model", "")
+        self._truth_world_offset = rospy.get_param("~truth_world_offset", [0.0, 0.0, 0.0])
+        self._truth_last_ns = -1
+        if self._truth_model:
+            rospy.Subscriber(rospy.get_param("~truth_topic", "/gazebo/model_states"),
+                             ModelStates, self._on_truth_pose, queue_size=1)
+        else:
+            rospy.Subscriber(topics["pose"], PoseStamped,
+                             self._on_pose, queue_size=1)
         rospy.Subscriber(topics["selected"], TargetCandidate,
                          self._on_selected, queue_size=20)
         rospy.Subscriber(topics["landing_detections"], TargetDetectionArray,
@@ -1411,6 +1419,22 @@ class NavigationVcl06AssertionNode:
             return "mission_wall_timeout"
         return ""
 
+    def _on_truth_pose(self, message):
+        now_ns = rospy.Time.now().to_nsec()
+        if now_ns - self._truth_last_ns < 20_000_000:
+            return
+        if self._truth_model not in message.name:
+            return
+        self._truth_last_ns = now_ns
+        position = message.pose[message.name.index(self._truth_model)].position
+        offset = self._truth_world_offset
+        # The scoring geometry uses local XY and physical height above floor.
+        # It must not move with an estimator's drifting origin or height bias.
+        with self._lock:
+            self.reducer.observe_pose(position.x-offset[0], position.y-offset[1],
+                                      position.z-offset[2], self.reducer.mission_frame)
+            self._check_terminal()
+
     def _on_pose(self, message):
         with self._lock:
             position = message.pose.position
@@ -1477,6 +1501,8 @@ class NavigationVcl06AssertionNode:
             self._check_terminal(timeout_reason=timeout_reason)
 
     def _write_report(self, report):
+        report["pose_source"] = ("gazebo_truth" if getattr(self, "_truth_model", "")
+                                 else "mavros_estimate")
         directory = os.path.dirname(os.path.abspath(self._report_path))
         os.makedirs(directory, exist_ok=True)
         descriptor, temporary_path = tempfile.mkstemp(
