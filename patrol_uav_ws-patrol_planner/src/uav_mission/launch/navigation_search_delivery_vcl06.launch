@@ -200,6 +200,8 @@
               /planning/bspline
               /downward_camera/camera_info
               /tf_static
+              /gazebo/model_states
+              /Odometry
               /mission/command
               /mission/release_permission
               /mission/release_permission_active

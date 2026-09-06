@@ -1492,7 +1492,6 @@ void LLController::load_params() {
     px4_max_distance = nh_.param("px4_max_distance", 1.2);
     max_yaw_change = nh_.param("max_yaw_change", 0.3);
     align_height = nh_.param("align_height", 1.0);
-    external_alignment_capture_height_ = align_height;
     external_landing_frame_ = nh_.param<std::string>(
         "external_landing/frame", "camera_init");
     external_landing_detections_topic_ = nh_.param<std::string>(
@@ -2717,9 +2716,6 @@ void LLController::missionCommandCallback(
             }
             clearExternalLandingState(true);
             resetDetectionState();
-            // Recovery changes the working height; every new target starts
-            // from the configured capture height, including the second/third.
-            align_height = external_alignment_capture_height_;
             // 随机投放区红十字与标准靶共用同一使命层队列，仅按目标类别选择
             // 对齐状态机分支（十字走 CrossDetectionDone，其余走圆环流程）。
             current_task_type = (msg->target_class == "red_cross")
@@ -3046,7 +3042,7 @@ bool LLController::CrossDetectionDone() {
         count_aligning = 0;
         drop_complete = false;
         down_flag = true;
-        align_height = external_mission_mode_ ? external_alignment_capture_height_ : 1.2;
+        align_height = 1.2;
         ROS_INFO("\033[34m[CrossDetection] Starting cross alignment using alignment_control_converter\033[0m");
     }
 

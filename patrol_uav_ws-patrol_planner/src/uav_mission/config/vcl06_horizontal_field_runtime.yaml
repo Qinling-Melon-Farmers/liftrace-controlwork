@@ -46,8 +46,8 @@ mission:
     # occupied even when the continuous vehicle path fits through the opening.
     # Keep the r20/r26 proven brackets around the 2025 competition waypoints;
     # planner convergence is fixed in the FSM instead of retuning route data.
-    - [-2.386703, 5.672270, 0.90]  # Wall_15 south approach
-    - [-2.386703, 6.472270, 0.90]  # Wall_15 north clear
+    - [-2.386703, 5.672270, 0.75]  # Wall_15 south approach, guard above body
+    - [-2.386703, 6.472270, 0.75]  # Wall_15 north clear
     - [-2.386703, 7.652690, 1.20]  # north corridor entry
     - [-0.512003, 8.053133, 1.20]  # Wall_20 west approach
     - [ 0.287997, 8.053133, 1.20]  # Wall_20 east clear
