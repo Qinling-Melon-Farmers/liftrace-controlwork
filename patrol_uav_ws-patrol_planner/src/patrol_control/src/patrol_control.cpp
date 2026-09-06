@@ -496,10 +496,10 @@ void LLController::externalLandingTick() {
         uav_pose.pose.position.y - external_landing_aligned_goal_.pose.position.y);
     if (uav_pose.pose.position.z <= external_landing_auto_land_height_ &&
         horizontal_error <= external_landing_alignment_tolerance_) {
-        if (!(simulation_auto_land && auto_land)) {
+        if (!auto_land) {
             ROS_ERROR_THROTTLE(
                 2.0,
-                "[ExternalLanding] AUTO.LAND blocked: explicit simulation gate is not enabled");
+                "[ExternalLanding] AUTO.LAND disabled by switch/auto_land");
             return;
         }
         if (external_landing_last_auto_land_attempt_.isZero() ||
@@ -1365,7 +1365,7 @@ void LLController::cmdCallback(const ros::TimerEvent& event) {
     // std::cout<<"mavros_point_cmd.pose.position.x, mavros_point_cmd.pose.position.y, mavros_point_cmd.pose.position.z = "<<mavros_point_cmd.pose.position.x<<", "<<mavros_point_cmd.pose.position.y<<", "<<mavros_point_cmd.pose.position.z<<std::endl;
     last_mavros_point_cmd = mavros_point_cmd;
     // 判断是否已经降落，降落成功就锁桨
-    // External SITL landing delegates disarm to PX4 AUTO.LAND and verifies it
+    // External landing delegates disarm to PX4 AUTO.LAND and verifies it
     // through MAVROS.  The legacy height-only force-disarm path is unsafe for
     // that contract because a bad local-z sample could stop motors in flight.
     if(!external_mission_mode_ && Drone_mode == Land &&
@@ -1396,18 +1396,18 @@ void LLController::Lock() {
 }
 
 void LLController::CallLand() {
-    if (simulation_auto_land && auto_land) {
+    if (auto_land && (external_mission_mode_ || simulation_auto_land)) {
         mavros_msgs::SetMode auto_land_mode;
         auto_land_mode.request.custom_mode = "AUTO.LAND";
         const bool mode_accepted =
             set_mode_client.call(auto_land_mode) &&
             auto_land_mode.response.mode_sent;
         if (mode_accepted) {
-            ROS_INFO("[PatrolControl] Simulation AUTO.LAND mode enabled");
+            ROS_INFO("[PatrolControl] AUTO.LAND mode enabled");
         } else {
-            ROS_WARN("[PatrolControl] Simulation AUTO.LAND request failed; keeping safe landing setpoint");
+            ROS_WARN("[PatrolControl] AUTO.LAND request failed; keeping landing setpoint");
         }
-        // Do not publish the historical -1 m setpoint in this simulation path.
+        // PX4 controls the final descent; retain the last aligned height setpoint.
         align_height = land_height;
         if (external_mission_mode_ && !mode_accepted) {
             // External mission completion is observed through MAVROS landed
