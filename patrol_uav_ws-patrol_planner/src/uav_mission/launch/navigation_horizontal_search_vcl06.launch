@@ -20,7 +20,7 @@
     <arg name="runtime_config" value="$(find uav_mission)/config/vcl06_horizontal_field_runtime.yaml" />
     <arg name="waypoint_config" value="$(find uav_mission)/config/vcl06_horizontal_control.yaml" />
     <arg name="field_config" value="$(find uav_mission)/config/coverage_r2026_horizontal.yaml" />
-    <arg name="camera_extrinsic_xyz" value="0 0 -0.16" />
+    <arg name="camera_extrinsic_xyz" value="0 0 -0.08588" />
     <arg name="search_altitude" value="1.40" />
     <arg name="external_planner_max_command_z" value="2.30" />
     <!-- Retain the successful planner's dynamic search envelope. Actual
@@ -40,9 +40,15 @@
   <node pkg="uav_mission" type="lio_external_pose.py" name="lio_external_pose" output="screen">
     <rosparam param="imu_to_body_xyz">[0.0, 0.0, -0.12412]</rosparam>
   </node>
+  <!-- FreeDOM consumes an IMU-frame scan, transformed by the same fused
+       vehicle pose as the controller and camera. LIO's unobservable vertical
+       component must not silently define a second camera_init frame. -->
+  <node pkg="tf2_ros" type="static_transform_publisher" name="mapping_imu_extrinsic"
+        args="0 0 0.12412 0 0 0 1 vision_body mapping_imu" />
+  <param name="/freedom/sensor_tf_frame" value="mapping_imu" />
   <rosparam param="/simulation/px4_parameters">
-    EKF2_EV_CTRL: 11
-    EKF2_HGT_REF: 3
+    EKF2_EV_CTRL: 9
+    EKF2_HGT_REF: 0
     EKF2_GPS_CTRL: 0
     EKF2_BARO_CTRL: 1
     EKF2_EV_DELAY: 0.0
