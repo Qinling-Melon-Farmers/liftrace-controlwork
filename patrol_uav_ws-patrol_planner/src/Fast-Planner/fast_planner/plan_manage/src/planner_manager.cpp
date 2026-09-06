@@ -189,6 +189,19 @@ bool FastPlannerManager::kinodynamicReplan(Eigen::Vector3d start_pt, Eigen::Vect
 
   Eigen::MatrixXd ctrl_pts;
   NonUniformBspline::parameterizeToBspline(ts, point_set, start_end_derivatives, ctrl_pts);
+  // Least-squares path fitting does not impose exact boundary states. Pin
+  // the cubic boundary controls before optimization, which keeps them fixed.
+  // Otherwise the first command can start on the opposite side of a loop.
+  const auto pin_boundary = [&ctrl_pts, ts](int first, const Eigen::Vector3d& p,
+                                           const Eigen::Vector3d& v,
+                                           const Eigen::Vector3d& a) {
+    ctrl_pts.row(first) = (p - ts * v + ts * ts * a / 3.0).transpose();
+    ctrl_pts.row(first + 1) = (p - ts * ts * a / 6.0).transpose();
+    ctrl_pts.row(first + 2) = (p + ts * v + ts * ts * a / 3.0).transpose();
+  };
+  pin_boundary(0, start_pt, start_vel, start_acc);
+  if (status == KinodynamicAstar::REACH_END)
+    pin_boundary(ctrl_pts.rows() - 3, end_pt, end_vel, Eigen::Vector3d::Zero());
   NonUniformBspline init(ctrl_pts, 3, ts);
 
   // bspline trajectory optimization
@@ -212,15 +225,10 @@ bool FastPlannerManager::kinodynamicReplan(Eigen::Vector3d start_pt, Eigen::Vect
 
   double to = pos.getTimeSum();
   pos.setPhysicalLimits(pp_.max_vel_, pp_.max_acc_);
-  bool feasible = pos.checkFeasibility(false);
-
-  int iter_num = 0;
-  while (!feasible && ros::ok()) {
-
-    feasible = pos.reallocateTime();
-
-    if (++iter_num >= 3) break;
-  }
+  // Uniform time scaling preserves the searched/optimized geometry and exact
+  // endpoint positions. Local knot edits used to move the curve after fitting.
+  const double ratio = std::max(1.0, pos.checkRatio() * 1.02);
+  pos.setKnot(pos.getKnot() * ratio);
 
   // pos.checkFeasibility(true);
   // cout << "[Main]: iter num: " << iter_num << endl;

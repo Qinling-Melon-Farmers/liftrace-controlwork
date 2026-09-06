@@ -27,10 +27,17 @@ template <class Evaluate>
 double boundedLookahead(const Evaluate& position, const Eigen::Vector3d& measured,
                         double progress, double duration, double distance) {
   double result = progress;
+  double arc = 0.0;
+  Eigen::Vector3d previous = position(progress);
   for (double t = progress + 0.02; t <= duration + 0.02; t += 0.02) {
     const double sample = std::min(t, duration);
-    if ((position(sample) - measured).norm() > distance) break;
+    const Eigen::Vector3d point = position(sample);
+    arc += (point - previous).norm();
+    // A tight turn may fit completely inside the tracking sphere. Bound the
+    // travelled arc too, so tiny pose noise cannot switch between its sides.
+    if (arc > distance || (point - measured).norm() > distance) break;
     result = sample;
+    previous = point;
     if (sample == duration) break;
   }
   return result;
