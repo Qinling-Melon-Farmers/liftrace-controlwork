@@ -44,7 +44,6 @@
 #include <plan_manage/PlannerStatus.h>
 #include <plan_manage/planner_status_tracker.h>
 #include <plan_manage/planner_manager.h>
-#include <plan_manage/trajectory_progress.h>
 #include <traj_utils/planning_visualization.h>
 
 using std::vector;
@@ -86,8 +85,6 @@ private:
   /* parameters */
   int target_type_;  // 1 mannual select, 2 hard code
   double no_replan_thresh_, replan_thresh_;
-  double tracking_replan_distance_, min_replan_interval_;
-  bool allow_goal_adjustment_;
   double waypoints_[50][3];
   int waypoint_num_;
   std::string goal_status_topic_;

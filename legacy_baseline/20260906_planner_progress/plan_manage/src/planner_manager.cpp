@@ -100,8 +100,7 @@ void FastPlannerManager::setGlobalWaypoints(vector<Eigen::Vector3d>& waypoints) 
 
 bool FastPlannerManager::checkTrajCollision(double& distance) {
 
-  const double t_now = local_data_.execution_time_ >= 0.0 ? local_data_.execution_time_ :
-      (ros::Time::now() - local_data_.start_time_).toSec();
+  double t_now = (ros::Time::now() - local_data_.start_time_).toSec();
 
   double tm, tmp;
   local_data_.position_traj_.getTimeSpan(tm, tmp);
@@ -115,7 +114,7 @@ bool FastPlannerManager::checkTrajCollision(double& distance) {
     fut_pt = local_data_.position_traj_.evaluateDeBoor(tm + t_now + fut_t);
 
     double dist = edt_environment_->evaluateCoarseEDT(fut_pt, -1.0);
-    if (dist < pp_.clearance_) {
+    if (dist < 0.1) {
       distance = radius;
       return false;
     }
@@ -138,13 +137,14 @@ bool FastPlannerManager::kinodynamicReplan(Eigen::Vector3d start_pt, Eigen::Vect
        << start_acc.transpose() << "\ngoal:" << end_pt.transpose() << ", " << end_vel.transpose()
        << endl;
 
-  if ((start_pt - end_pt).norm() < 0.01) {
+  if ((start_pt - end_pt).norm() < 0.2) {
     cout << "Close goal" << endl;
     return false;
   }
 
   ros::Time t1, t2;
 
+  local_data_.start_time_ = ros::Time::now();
   double t_search = 0.0, t_opt = 0.0, t_adjust = 0.0;
 
   Eigen::Vector3d init_pos = start_pt;
@@ -234,20 +234,6 @@ bool FastPlannerManager::kinodynamicReplan(Eigen::Vector3d start_pt, Eigen::Vect
 
   // save planned results
 
-  // Optimization and time allocation can move the searched curve. Check the
-  // final curve before replacing the last safe trajectory, including limits
-  // represented in the point-cloud map (ceiling and horizontal avoidance).
-  for (double t = 0.0; t <= pos.getTimeSum() + 0.02; t += 0.02) {
-    Eigen::Vector3d point = pos.evaluateDeBoorT(std::min(t, pos.getTimeSum()));
-    if (!point.allFinite() ||
-        edt_environment_->sdf_map_->getInflateOccupancy(point) != 0 ||
-        edt_environment_->evaluateCoarseEDT(point, -1.0) < pp_.clearance_) {
-      ROS_WARN_THROTTLE(1.0, "optimized trajectory violates clearance");
-      return false;
-    }
-  }
-  local_data_.start_time_ = ros::Time::now();
-  local_data_.execution_time_ = 0.0;
   local_data_.position_traj_ = pos;
 
   double t_total = t_search + t_opt + t_adjust;

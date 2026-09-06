@@ -1,0 +1,50 @@
+<launch>
+  <!-- Same formal mission/control chain, with 2026 geometry and measured camera mounting. -->
+  <arg name="gui" default="false" />
+  <arg name="rviz" default="false" />
+  <arg name="record_debug" default="true" />
+  <arg name="field_seed" default="11" />
+  <arg name="target_model_path" default="$(optenv UAV_VISION_MODEL_PATH)" />
+  <arg name="mission_start_mode" default="full" />
+  <arg name="gate_scope" default="full" />
+  <include file="$(find uav_mission)/launch/navigation_search_delivery_vcl06.launch">
+    <arg name="gui" value="$(arg gui)" />
+    <arg name="rviz" value="$(arg rviz)" />
+    <arg name="record_debug" value="$(arg record_debug)" />
+    <arg name="field_seed" value="$(arg field_seed)" />
+    <arg name="target_model_path" value="$(arg target_model_path)" />
+    <arg name="mission_start_mode" value="$(arg mission_start_mode)" />
+    <arg name="gate_scope" value="$(arg gate_scope)" />
+    <arg name="world" value="$(find uav_vision_eval)/models/r2026_horizontal_field/field.world" />
+    <arg name="vehicle_sdf" value="$(find uav_vision_eval)/models/iris_mid360_ks2a543_installed/model.sdf" />
+    <arg name="runtime_config" value="$(find uav_mission)/config/vcl06_horizontal_field_runtime.yaml" />
+    <arg name="waypoint_config" value="$(find uav_mission)/config/vcl06_horizontal_control.yaml" />
+    <arg name="field_config" value="$(find uav_mission)/config/coverage_r2026_horizontal.yaml" />
+    <arg name="camera_extrinsic_xyz" value="0 0 -0.16" />
+    <arg name="search_altitude" value="1.40" />
+    <arg name="external_planner_max_command_z" value="2.30" />
+    <arg name="planner_max_vel" value="0.50" />
+    <arg name="planner_obstacles_inflation" value="0.30" />
+    <arg name="planner_clearance_threshold" value="0.025" />
+    <arg name="px4_max_distance" value="0.40" />
+  </include>
+  <!-- Point cloud origin = (.011,.02329,.05588) in body; PX4 IMU is z=.02.
+       FAST-LIO consumes MAVROS IMU, not the separately simulated MID360 IMU. -->
+  <rosparam param="/mapping/extrinsic_T">[0.011, 0.02329, 0.03588]</rosparam>
+  <rosparam ns="/fast_planner_node">
+    fsm/allow_goal_adjustment: false
+    fsm/tracking_replan_distance: 0.45
+    fsm/min_replan_interval: 0.75
+    sdf_map/virtual_ceil_height: 2.30
+    sdf_map/obstacles_inflation_up: 0.30
+    sdf_map/obstacles_inflation_down: 0.10
+    sdf_map/horizontal_avoidance/enabled: true
+    sdf_map/horizontal_avoidance/min_x: -2.1
+    sdf_map/horizontal_avoidance/max_x: 2.1
+    sdf_map/horizontal_avoidance/min_y: 0.2
+    sdf_map/horizontal_avoidance/max_y: 5.5
+    sdf_map/horizontal_avoidance/obstacle_min_z: 0.40
+    sdf_map/horizontal_avoidance/floor_z: 0.10
+    optimization/dist0: 0.10
+  </rosparam>
+</launch>
