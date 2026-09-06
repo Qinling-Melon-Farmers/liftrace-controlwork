@@ -2,7 +2,10 @@
 #include <mavros_msgs/CommandBool.h>
 #include <mavros_msgs/SetMode.h>
 #include <mavros_msgs/State.h>
+#include <mavros_msgs/ParamSet.h>
 #include <geometry_msgs/PoseStamped.h>
+#include <cmath>
+#include <stdexcept>
 
 class SimpleArmingNode {
 private:
@@ -14,9 +17,21 @@ private:
     mavros_msgs::State current_state_;
     bool offboard_set_ = false;
     bool armed_ = false;
+    XmlRpc::XmlRpcValue sitl_parameters_;
+    bool parameters_applied_ = false;
+    ros::ServiceClient parameter_client_;
     
 public:
     SimpleArmingNode() {
+        nh_.getParam("/simulation/px4_parameters", sitl_parameters_);
+        if (sitl_parameters_.getType() == XmlRpc::XmlRpcValue::TypeStruct) {
+            bool simulation = false;
+            nh_.param("/use_sim_time", simulation, false);
+            if (!simulation) throw std::runtime_error("SITL parameter setup requires /use_sim_time");
+            parameter_client_ = nh_.serviceClient<mavros_msgs::ParamSet>("/mavros/param/set");
+        } else {
+            parameters_applied_ = true;
+        }
         // 订阅飞机状态
         state_sub_ = nh_.subscribe<mavros_msgs::State>("/mavros/state", 10, &SimpleArmingNode::stateCallback, this);
         
@@ -32,6 +47,31 @@ public:
         
         // 检查MAVROS连接
         if (!current_state_.connected) {
+            return;
+        }
+
+        // Configure the estimator before this simulation-only node requests
+        // OFFBOARD/arming. PX4's existing preflight checks wait for valid EV.
+        if (!parameters_applied_) {
+            if (current_state_.armed) {
+                ROS_ERROR_THROTTLE(2.0, "Refusing estimator setup on an armed vehicle");
+                return;
+            }
+            for (auto it = sitl_parameters_.begin(); it != sitl_parameters_.end(); ++it) {
+                mavros_msgs::ParamSet request;
+                request.request.param_id = it->first;
+                const bool integer = it->second.getType() == XmlRpc::XmlRpcValue::TypeInt;
+                if (integer) request.request.value.integer = static_cast<int>(it->second);
+                else request.request.value.real = static_cast<double>(it->second);
+                if (!parameter_client_.call(request) || !request.response.success ||
+                    (integer ? request.response.value.integer != request.request.value.integer :
+                     std::abs(request.response.value.real - request.request.value.real) > 1e-5)) {
+                    ROS_WARN("SITL estimator parameter %s not applied; waiting", it->first.c_str());
+                    return;
+                }
+            }
+            parameters_applied_ = true;
+            ROS_INFO("SITL estimator parameters applied before arming");
             return;
         }
         
@@ -80,4 +120,4 @@ int main(int argc, char **argv) {
     ros::spin();
     
     return 0;
-} 
+}

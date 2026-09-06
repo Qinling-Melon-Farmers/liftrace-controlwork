@@ -202,6 +202,11 @@
               /tf_static
               /gazebo/model_states
               /Odometry
+              /mavros/vision_pose/pose
+              /mavros/imu/data
+              /livox/imu
+              /livox/lidar
+              /tf
               /mission/command
               /mission/release_permission
               /mission/release_permission_active

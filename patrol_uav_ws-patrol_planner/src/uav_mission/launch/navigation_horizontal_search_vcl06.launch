@@ -30,9 +30,25 @@
     <arg name="planner_clearance_threshold" value="0.025" />
     <arg name="px4_max_distance" value="0.40" />
   </include>
-  <!-- Point cloud origin = (.011,.02329,.05588) in body; PX4 IMU is z=.02.
-       FAST-LIO consumes MAVROS IMU, not the separately simulated MID360 IMU. -->
-  <rosparam param="/mapping/extrinsic_T">[0.011, 0.02329, 0.03588]</rosparam>
+  <!-- Use the MID360's own synchronized IMU. Ray origin is body z=.05588;
+       IMU origin is body z=.05. The extrinsic is IMU -> lidar, not its inverse. -->
+  <param name="/common/imu_topic" value="/livox/imu" />
+  <rosparam param="/mapping/extrinsic_T">[0.011, 0.02329, 0.00588]</rosparam>
+  <param name="/filter_size_surf" value="0.15" />
+  <param name="/filter_size_map" value="0.15" />
+  <param name="/pcd_save/pcd_save_en" value="false" />
+  <node pkg="uav_mission" type="lio_external_pose.py" name="lio_external_pose" output="screen">
+    <rosparam param="imu_to_body_xyz">[0.0, 0.0, -0.05]</rosparam>
+  </node>
+  <rosparam param="/simulation/px4_parameters">
+    EKF2_EV_CTRL: 11
+    EKF2_HGT_REF: 3
+    EKF2_GPS_CTRL: 0
+    EKF2_BARO_CTRL: 0
+    EKF2_EV_DELAY: 0.0
+    EKF2_EVP_NOISE: 0.10
+    EKF2_EVA_NOISE: 0.05
+  </rosparam>
   <rosparam ns="/fast_planner_node">
     fsm/allow_goal_adjustment: false
     fsm/tracking_replan_distance: 0.45
