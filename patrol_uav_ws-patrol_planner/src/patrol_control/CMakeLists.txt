@@ -169,6 +169,7 @@ target_link_libraries(alignment_control_converter ${catkin_LIBRARIES})
 ## Mark executable scripts (Python etc.) for installation
 ## in contrast to setup.py, you can choose the destination
 catkin_install_python(PROGRAMS
+  scripts/px4_sitl_start.py
   scripts/odom_to_pose_relay.py
   scripts/spawn_model_delayed.py
   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
@@ -218,6 +219,7 @@ endif()
 
 catkin_add_nosetests(test/test_no_legacy_servo_status_false.py)
 catkin_add_nosetests(test/test_new_vision_config.py)
+catkin_add_nosetests(test/test_px4_sitl_start.py)
 
 ## Add folders to be run by python nosetests
 # catkin_add_nosetests(test)
