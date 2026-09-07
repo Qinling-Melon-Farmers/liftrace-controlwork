@@ -1,3 +1,5 @@
+> 本文为R56原三框门验收。后续R57错列墙：0.85m PASS、0.80m FAIL，见[最新报告](../r57_toudi4/REPORT.md)。
+
 # R4x—R56 整机竞赛工程最终报告
 
 日期：2026-09-07。平台：笔记本 WSL2 / Ubuntu 20.04 / ROS Noetic / PX4 SITL / Gazebo Classic，视觉使用既有 rl_drone 环境和 GPU 六分类模型。机械投递为 mock Servo，本报告不把仿真提交计为真实落点得分。
