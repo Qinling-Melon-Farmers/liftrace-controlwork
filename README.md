@@ -1,3 +1,7 @@
+# 导航来源：R62首投运行已验证
+
+整机分支8bedcc0已在seed11完成建图、起飞、搜索、panzer第1槽仿真投递和恢复搜索。[运行报告](docs/verification/r62_operational/REPORT.md)。未验证整场或稳定三投；完整复现与打包使用liftrace-visionwork的feat/r2026-competition-integrated。
+
 # 导航来源分支：R61更新
 
 已修复外部标准靶丢标回旧航点，导航配置同步16/21/6cm、9.6m场地与AGL换算；整机验证在liftrace-visionwork的feat/r2026-competition-integrated完成。本轮只有构建/软件回归/静态截图，无新飞行PASS。[R61报告](docs/verification/r61_layout_search/REPORT.md)。两份本地包由精简整机分支打包，不把本来源树中的旧参考装上飞机。
