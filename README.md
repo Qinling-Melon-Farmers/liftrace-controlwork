@@ -1,5 +1,7 @@
 # 导航来源：R62首投运行已验证
 
+R64联合结果：固定seed11完整PASS，十seed原始7/10完整PASS；5/7/8存在历史靶板压墙，现已修布设检查但未重跑矩阵。当前完整任务入口/包以liftrace-visionwork的feat/r2026-competition-integrated为准；本分支提供分组源码与报告，不把历史副本当作已独立验收的整机入口。见docs/verification/r64_matrix/REPORT.md。
+
 整机分支8bedcc0已在seed11完成建图、起飞、搜索、panzer第1槽仿真投递和恢复搜索。[运行报告](docs/verification/r62_operational/REPORT.md)。未验证整场或稳定三投；完整复现与打包使用liftrace-visionwork的feat/r2026-competition-integrated。
 
 # 导航来源分支：R61更新
