@@ -8,9 +8,12 @@ project(uav_mission)
 ## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
 ## is used, also find other catkin packages
 find_package(catkin REQUIRED COMPONENTS
+  gazebo_msgs
   geometry_msgs
   message_generation
+  mavros_msgs
   nav_msgs
+  patrol_control
   plan_manage
   roscpp
   rospy
@@ -61,6 +64,8 @@ add_message_files(
   FILES
   NavigationDecision.msg
   NavigationResult.msg
+  ReleasePermission.msg
+  ReleaseResult.msg
 )
 
 ## Generate services in the 'srv' folder
@@ -118,7 +123,10 @@ catkin_package(
 #  LIBRARIES uav_mission
 #  DEPENDS system_lib
   CATKIN_DEPENDS
+    gazebo_msgs
     message_runtime
+    mavros_msgs
+    patrol_control
     roscpp
     rospy
     std_msgs
@@ -141,18 +149,6 @@ include_directories(
   ${catkin_INCLUDE_DIRS}
 )
 
-add_executable(target_search_manager_cpp
-  src/target_search_manager_node.cpp
-)
-
-add_dependencies(target_search_manager_cpp
-  ${${PROJECT_NAME}_EXPORTED_TARGETS}
-  ${catkin_EXPORTED_TARGETS}
-)
-
-target_link_libraries(target_search_manager_cpp
-  ${catkin_LIBRARIES}
-)
 
 ## Declare a C++ library
 # add_library(${PROJECT_NAME}
@@ -189,15 +185,27 @@ target_link_libraries(target_search_manager_cpp
 #############
 
 catkin_install_python(PROGRAMS
+  scripts/release_permission_arbiter.py
+  scripts/release_commitment.py
+  scripts/guarded_servo_proxy.py
+  scripts/mock_raw_servo_server.py
+  scripts/visual_delivery_audit.py
+  scripts/random_field_spawner.py
+  scripts/pose_tf_broadcaster.py
+  scripts/navigation_frame_adapter.py
+  scripts/map_camera_alignment.py
+  scripts/lio_external_pose.py
+  scripts/navigation_mission_start_gate.py
+  scripts/navigation_high_view_full.py
+  scripts/navigation_high_view_probe.py
   scripts/navigation_mission_manager.py
   scripts/navigation_planner_bridge.py
-  scripts/target_search_manager_py.py
+  scripts/navigation_vcl06_assertion.py
+  scripts/planner_anchor_spawner.py
+  scripts/gazebo_contact_monitor.py
   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )
 
-install(TARGETS target_search_manager_cpp
-  RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
-)
 
 install(DIRECTORY launch config
   DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}
@@ -246,14 +254,28 @@ install(DIRECTORY launch config
 #############
 
 if(CATKIN_ENABLE_TESTING)
+  catkin_add_nosetests(test/test_lio_external_pose.py)
+  catkin_add_nosetests(test/test_navigation_frame_adapter.py)
+  catkin_add_nosetests(test/test_map_camera_alignment.py)
   catkin_add_nosetests(test/test_contract_profile.py)
   catkin_add_nosetests(test/test_coverage_route.py)
+  catkin_add_nosetests(test/test_external_mission_contract.py)
   catkin_add_nosetests(test/test_mission_core.py)
   catkin_add_nosetests(test/test_mission_runtime.py)
+  catkin_add_nosetests(test/test_high_view_probe.py)
+  catkin_add_nosetests(test/test_high_view_full.py)
+  catkin_add_nosetests(test/test_execution_speed.py)
   catkin_add_nosetests(test/test_navigation_manager_contract.py)
+  catkin_add_nosetests(test/test_mission_start_gate.py)
   catkin_add_nosetests(test/test_planner_execution.py)
+  catkin_add_nosetests(test/test_position_settle.py)
+  catkin_add_nosetests(test/test_release_commitment.py)
   catkin_add_nosetests(test/test_planner_mission_contract.py)
   catkin_add_nosetests(test/test_navigation_planner_bridge_contract.py)
+  catkin_add_nosetests(test/test_navigation_vcl06_assertion.py)
+  catkin_add_nosetests(test/test_staggered_corridor_gate.py)
+  catkin_add_nosetests(test/test_sim_lidar_map_contract.py)
+  catkin_add_nosetests(test/test_visual_delivery_audit_policy.py)
 endif()
 
 ## Add gtest based cpp test target and link libraries
