@@ -327,7 +327,7 @@ void cmdCallback(const ros::TimerEvent& e) {
     return traj_[0].evaluateDeBoorT(t);
   };
   execution_time_ = fast_planner::projectProgress(
-      position, odom_pos_, execution_time_, traj_duration_);
+      position, odom_pos_, execution_time_, traj_duration_, std::min(0.4,target_dist));
   const double best_t = fast_planner::boundedLookahead(
       position, odom_pos_, execution_time_, traj_duration_, target_dist);
 

@@ -303,8 +303,11 @@ void KinoReplanFSM::execFSMCallback(const ros::TimerEvent& e) {
       const auto position = [info](double t) -> Eigen::Vector3d {
         return info->position_traj_.evaluateDeBoorT(t);
       };
+      double following_lead = 0.4;
+      ros::param::getCached("/traj_server/traj_server/target_dist", following_lead);
+      if (!std::isfinite(following_lead) || following_lead <= 0.0) following_lead=0.4;
       info->execution_time_ = projectProgress(
-          position, odom_pos_, info->execution_time_, info->duration_);
+          position, odom_pos_, info->execution_time_, info->duration_, std::min(0.4,following_lead));
       const double goal_distance = currentGoalDistance();
       if (goal_status_tracker_.canFinishWithin(goal_distance, no_replan_thresh_)) {
         publishGoalStatus(goal_status_tracker_.finish(
