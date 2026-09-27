@@ -18,7 +18,7 @@ class LocalLandingMixin:
         if active and active.command=='APPROACH' and event.decision_seq==active.decision_seq:
             landing_here(self,current_xy)
         result=super().apply_result(event,now,current_xy)
-        expected=len(self.trial_manifest or {}) if hasattr(self,'trial_manifest') else 1
+        expected=len(self.trial_manifest or {}) if hasattr(self,'trial_manifest') else getattr(self,'delivery_count',1)
         if (result.accepted and event.status=='SUCCEEDED' and event.stage=='RECOVERY' and expected>0 and self.core.committed_slots>=expected and result.action is not None and result.action.command=='RETURN_HOME'):
             # Replace an as-yet unpublished competition return with the local test LAND.
             self.core.active_action=None
@@ -39,8 +39,8 @@ class SingleDeliveryRuntime(LocalLandingMixin,MissionRuntime):
 
 class OpenTourGrid(GridCost):
     """At most three destinations, no fictitious return-to-start edge."""
-    def order(self,start,points,end,now):
-        if self.stamp is None or not 0<=now-self.stamp<=2. or not 1<=len(points)<=3:return None
+    def order(self,start,points,end,now,max_age=2.):
+        if self.stamp is None or not 0<=now-self.stamp<=max_age or not 1<=len(points)<=3:return None
         origins={'START':start,**points};dist={k:self.distances(v) for k,v in origins.items()}
         tours=[]
         for names in itertools.permutations(points):
@@ -59,7 +59,7 @@ class FullCircleRuntime(LocalLandingMixin,HighViewFull):
         return MissionRuntime.start(self,mission_id,now,current_xy)
     def _all_top(self,now):
         current=super()._all_top(now)
-        return current if self.trial_manifest is None else dict(self.trial_manifest)
+        return current if self.trial_manifest is None else {k:v for k,v in current.items() if k in self.trial_manifest}
     def _consider_search_replacement(self,now):
         # Deliberately retain the full survey even when all three hints are ready.
         if self.stage=='SURVEY' and self.ascent_verified:
@@ -93,3 +93,55 @@ class FullCircleRuntime(LocalLandingMixin,HighViewFull):
             trial_manifest={k:asdict(v) for k,v in (self.trial_manifest or {}).items()},
             trial_memory_count=len(self.trial_manifest or {}),early_top3_interrupt_enabled=False)
         return value
+
+
+class MultiDeliveryRuntime(LocalLandingMixin,MissionRuntime):
+    def __init__(self,*args,delivery_count=2,**kwargs):
+        if type(delivery_count) is not int or not 1<=delivery_count<=3:
+            raise ValueError('delivery_count must be 1..3')
+        self.delivery_count=delivery_count
+        super().__init__(*args,**kwargs)
+    def _schedule_from_search(self,now,prefer_resume,route_outcome=None):
+        if self.core.committed_slots>=self.delivery_count:
+            return self.end_here(now,'board_multi_deliveries_complete')
+        if self.route.is_complete:
+            return self._fail_closed('board_line_finished_before_delivery_count',now)
+        return super()._schedule_from_search(now,prefer_resume,route_outcome)
+
+
+class PriorityRevisitRuntime(FullCircleRuntime):
+    """Production early exit/recovery policy, with a local trial endpoint."""
+    def _consider_search_replacement(self,now):
+        return HighViewFull._consider_search_replacement(self,now)
+    def _finish_route(self,action,succeeded,now):
+        return HighViewFull._finish_route(self,action,succeeded,now)
+    def _start_fallback(self,now,reason):
+        remaining=set(self.trial_manifest or {})-self.core.queue.delivered_classes
+        if remaining:
+            check=self._next_conflict_location(now)
+            if check is not None:return check
+            local=self._local_wall_recheck(now)
+            if local is not None:return local
+        return super()._start_fallback(now,reason)
+    def probe_status(self):
+        value=super().probe_status()
+        value.update(scope='BOARD_PRIORITY_REVISIT',early_top3_interrupt_enabled=True)
+        return value
+
+
+class MemoryOnlyRuntime(FullCircleRuntime):
+    """Complete survey, descend through the planner, then land; never APPROACH."""
+    def _next_target(self,now):
+        return self.end_here(now,'board_memory_only_complete')
+    def probe_status(self):
+        value=super().probe_status()
+        value.update(scope='BOARD_MEMORY_ONLY',memory_only=True)
+        return value
+
+
+class FullMissionTrialRuntime(HighViewFull):
+    """Same full strategy as research, with measured hardware configuration."""
+    def start(self,mission_id,now,current_xy):
+        self.catalog.reset(Epoch(mission_id,'fixed-board-session',self.probe_config.source_key))
+        self.survey_until=now+self.core.config.mission_timeout
+        return MissionRuntime.start(self,mission_id,now,current_xy)

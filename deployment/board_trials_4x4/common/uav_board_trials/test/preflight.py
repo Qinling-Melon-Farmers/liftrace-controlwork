@@ -1,15 +1,15 @@
 from pathlib import Path
 import sys,json,tempfile
 import yaml,roslaunch,rospkg
-from trial_config import generate
+from trial_config import generate,TRIAL_FOLDERS,HIGH_MODES,H_MODES,NO_DROP_MODES
 from trial_manager import BoardManager
 from unittest.mock import patch
 R=Path(__file__).resolve().parents[5];P=R/'deployment/board_trials_4x4/common/uav_board_trials'
 roslaunch.substitution_args._rospack=rospkg.RosPack(ros_paths=[str(R/'vision_ws/src'),str(R/'patrol_uav_ws-patrol_planner/src'),'/opt/ros/noetic/share'])
 rows=[]
-for folder in ('01_visual_interrupt','02_high_view_revisit','03_h_landing','04_corridor_landing'):
+for folder in TRIAL_FOLDERS.values():
     s=yaml.safe_load((R/'deployment/board_trials_4x4'/folder/'settings.yaml').read_text());rig=yaml.safe_load((P/'config/known_rig.yaml').read_text())
-    if folder=='04_corridor_landing':
+    if folder in ('04_corridor_landing','08_full_mission'):
         # Test fixture only; the shipped settings file remains empty.
         s['corridor_waypoints']=[dict(x=.6,y=0),dict(x=1.5,y=.4)]
         s['landing_xy']=[2.5,0]
@@ -23,8 +23,8 @@ for folder in ('01_visual_interrupt','02_high_view_revisit','03_h_landing','04_c
             assert values['/fast_planner_node/search/max_vel']==s['cruise_speed']
             assert values['/fast_planner_node/manager/max_acc']==s['cruise_acceleration']==0.35
             assert values['/fast_planner_node/sdf_map/virtual_ceil_height']==-.1
-            assert [values['/fast_planner_node/sdf_map/'+key] for key in ('obstacles_inflation','obstacles_inflation_up','obstacles_inflation_down')]==[.25,.2,.1]
-            assert values['/fast_planner_node/sdf_map/horizontal_avoidance/enabled']==(s['mode']=='high_view')
+            assert [values['/fast_planner_node/sdf_map/'+key] for key in ('obstacles_inflation','obstacles_inflation_up','obstacles_inflation_down')]==[.275,.2,.1]
+            assert values['/fast_planner_node/sdf_map/horizontal_avoidance/enabled']==(s['mode'] in HIGH_MODES)
             assert values['/fast_planner_node/sdf_map/horizontal_avoidance/column_middle_enabled']
             assert values['/fast_planner_node/sdf_map/horizontal_avoidance/column_band_low_ratio']==.4
             assert values['/fast_planner_node/sdf_map/horizontal_avoidance/column_band_high_ratio']==.6
@@ -35,17 +35,17 @@ for folder in ('01_visual_interrupt','02_high_view_revisit','03_h_landing','04_c
             assert values['/fast_planner_node/progress/enabled']
             assert values['/traj_server/progress/enabled']
             assert values['/traj_server/traj_server/require_goal_identity']
-            if s['mode']=='high_view':assert values['/navigation/mission_manager/high_view_probe/config/staging_xy']==[.6,.05]
+            if s['mode'] in HIGH_MODES:assert values['/navigation/mission_manager/high_view_probe/config/staging_xy']==[.6,.05]
             assert not any(n.package in ('gazebo_ros','actuator_pwm') for n in cfg.nodes)
             assert 'trial_recorder' in nodes and 'target_detector_rknn' in nodes
             assert ('patrol_control' in nodes)==(enabled=='true')
-            assert ('board_mock_servo' in nodes)==(enabled=='true' and s['mode']!='landing')
-            assert ('trial_auto_land' in nodes)==(enabled=='true' and s['mode']!='landing')
-            if enabled=='true' and s['mode']!='landing':
+            assert ('board_mock_servo' in nodes)==(enabled=='true' and s['mode'] not in NO_DROP_MODES)
+            assert ('trial_auto_land' in nodes)==(enabled=='true' and s['mode'] not in H_MODES)
+            if enabled=='true' and s['mode'] not in NO_DROP_MODES:
                 assert values['/guarded_servo_proxy/raw_service_name']=='/board_trials/mock_servo';assert values['/release_permission_arbiter/pose_topic']=='/navigation/local_pose'
                 assert values['/guarded_servo_proxy/service_name']=='/board_trials/Servo'
                 assert ('/Servo','/board_trials/Servo') in [tuple(v) for v in nodes['patrol_control'].remap_args],nodes['patrol_control'].remap_args
-                assert values['/external_landing/detections_topic']=='/board_trials/h_disabled'
+                assert values['/external_landing/detections_topic']==('/uav_vision/detections_mapped' if s['mode'] in H_MODES else '/board_trials/h_disabled')
             runtime=yaml.safe_load((Path(tmp)/'runtime.yaml').read_text())
             # Exercise the actual adapter's mission/runtime construction with expanded parameters.
             def get_param(key,default=None):

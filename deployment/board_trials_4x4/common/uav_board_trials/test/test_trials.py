@@ -28,7 +28,7 @@ class TrialTests(unittest.TestCase):
         r.start('mission-runtime',100.,(0.,0.));r.ascent_verified=True
         for t in (101.,101.3,101.6):
             r.update_pose((0,0,2.38),t,'camera_init')
-            r.ingest([replace(candidate(target_id=i,class_name=c,now=t,x=1.+i*.5,y=.5),first_seen_ns=99_000_000_000) for i,c in enumerate(('bridge','panzer','red_cross'))],t)
+            r.ingest([replace(candidate(target_id=i,class_name=c,now=t,x=((1.,-1.),(3.,-1.),(2.,1.))[i][0],y=((1.,-1.),(3.,-1.),(2.,1.))[i][1]),first_seen_ns=99_000_000_000) for i,c in enumerate(('bridge','panzer','red_cross'))],t)
         self.assertEqual(len(r._all_top(101.6)),3)
         seq=r.core.active_action.decision_seq;r.tick(101.7,(0.,0.));self.assertEqual(r.core.active_action.decision_seq,seq);self.assertEqual(r.stage,'SURVEY')
     def test_one_two_three_memories_finish_at_last_target_without_fake_slots(self):

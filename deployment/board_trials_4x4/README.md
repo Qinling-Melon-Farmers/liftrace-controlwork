@@ -109,3 +109,7 @@ rosservice call /navigation/start_mission "{}"
 ### 三槽补偿说明（2026-09-26晚）
 
 known_rig继承的12cm表仅为试飞组已有camera_init XY目标偏移，尚非经实测确认、按机体姿态旋转的三槽安装外参。四套专项的mock释放不能验证真实槽口精度；共同视觉主点与槽位补偿未完全统一，见[核查报告](../../docs/deployment/drop_slots_20260926/REPORT.md)。本次未改该表或部署参数。
+
+## 2026-09-27 八组专项更新
+
+原四组和新增四组使用同一公共实现，最新操作与继承项见 [MODULES.md](MODULES.md)。默认模拟投递，实投另有显式入口；仿真场景独立于实测空航点设置。

@@ -1,7 +1,7 @@
 <?xml version='1.0' encoding='utf-8'?>
 <launch>
   <arg name="enable_control_output" default="false" />
-  <arg name="alignment_mode" default="measured" />
+  <arg name="alignment_mode" default="legacy_static" />
   <arg name="map_frame" default="camera_init" />
   <arg name="body_to_imu_xyz" default="0 0 0.05" />
   <arg name="imu_to_camera_z" default="-0.21" />

@@ -23,13 +23,15 @@ class Recorder:
         self.out=Path(rospy.get_param('~directory'));self.out.mkdir(parents=True,exist_ok=True)
         self.fps=float(rospy.get_param('~fps',5));self.width=int(rospy.get_param('~width',640));self.started=time.monotonic();self.max_seconds=float(rospy.get_param('~max_seconds',900));self.lock=threading.RLock()
         if not 1<=self.fps<=10 or not 160<=self.width<=1280 or self.width%2:raise ValueError('Recording rate/size outside board budget')
-        self.images=deque(maxlen=16);self.yolo=deque(maxlen=20);self.mapped=deque(maxlen=20);self.state={};self.last={};self.writers=[];self.frames=0;self.matched=0
+        self.images=deque(maxlen=16);self.yolo=deque(maxlen=20);self.mapped=deque(maxlen=20);self.coarse=deque(maxlen=20);self.state={};self.last={};self.writers=[];self.frames=0;self.matched=0
+        self.actuator_mode=rospy.get_param('/board_trials/actuator_mode','mock')
         self.closed=False;self.events=(self.out/'vision_events.jsonl').open('w');self.csvfile=(self.out/'camera_frames.csv').open('w');self.csv=csv.writer(self.csvfile);self.csv.writerow(['frame','record_ros_sec','image_ros_sec','image_age_s','yolo_dt_s','mapped_dt_s'])
         self.posefile=(self.out/'navigation_pose.csv').open('w');self.posecsv=csv.writer(self.posefile);self.posecsv.writerow(['t','x','y','z','qx','qy','qz','qw','frame'])
         cv2.setNumThreads(1)
         self.subs=[rospy.Subscriber(rospy.get_param('~image_topic','/camera/image_raw'),Image,self.image,queue_size=1,buff_size=8*1024**2),
             rospy.Subscriber(rospy.get_param('~yolo_topic','/uav_vision/detections'),TargetDetectionArray,lambda m:self.detections('yolo',m),queue_size=1),
             rospy.Subscriber(rospy.get_param('~mapped_topic','/uav_vision/detections_mapped'),TargetDetectionArray,lambda m:self.detections('mapped',m),queue_size=1),
+            rospy.Subscriber('/uav_vision/navigation_hints',TargetDetectionArray,lambda m:self.detections('coarse',m),queue_size=1),
             rospy.Subscriber('/uav_vision/targets',TargetCandidateArray,self.targets,queue_size=1),
             rospy.Subscriber('/uav_vision/drop_offset',DropOffset,self.offset,queue_size=1),
             rospy.Subscriber('/uav_vision/release_evidence',ReleaseEvidence,self.evidence,queue_size=1),
@@ -103,7 +105,7 @@ class Recorder:
                     if item.center_refined and np.isfinite([item.center_px.x,item.center_px.y]).all():cv2.drawMarker(annotated,(int(item.center_px.x*ratio),int(item.center_px.y*ratio)),color,cv2.MARKER_CROSS,9,1)
             mission=states.get('mission',{});high=states.get('high',{});offset=states.get('offset',{});evidence=states.get('evidence',{})
             banner=np.zeros((84,self.width,3),np.uint8)
-            lines=[f'MOCK DROP ONLY | ROS {now:.2f} | image age {now-stamp:.2f}s',f'phase {mission.get("phase","WAIT")} / {high.get("stage","")} | memory {high.get("trial_memory_count",len(states.get("targets",[])))} | drops {mission.get("committed_slots",0)}',f'align {states.get("align","disabled")} | aligned={evidence.get("aligned","?")} valid={evidence.get("evidence_valid","?")} permit={states.get("permit","?")}',f'dx={offset.get("dx","?")} dy={offset.get("dy","?")} | {"STALE IMAGE" if now-stamp>.6 else "boxes matched <=30ms"}']
+            lines=[f'{self.actuator_mode.upper()} ACTUATOR | ROS {now:.2f} | image age {now-stamp:.2f}s',f'phase {mission.get("phase","WAIT")} / {high.get("stage","")} | memory {high.get("trial_memory_count",len(states.get("targets",[])))} | drops {mission.get("committed_slots",0)}',f'align {states.get("align","disabled")} | aligned={evidence.get("aligned","?")} valid={evidence.get("evidence_valid","?")} permit={states.get("permit","?")}',f'dx={offset.get("dx","?")} dy={offset.get("dy","?")} | {"STALE IMAGE" if now-stamp>.6 else "boxes matched <=30ms"}']
             for i,line in enumerate(lines):cv2.putText(banner,line[:105],(7,17+20*i),cv2.FONT_HERSHEY_SIMPLEX,.38,(220,220,220),1,cv2.LINE_AA)
             full=np.vstack((annotated,banner))
             if not self.writers:

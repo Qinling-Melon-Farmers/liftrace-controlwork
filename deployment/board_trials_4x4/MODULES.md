@@ -1,0 +1,65 @@
+# 八组板端专项与同链仿真（2026-09-27）
+
+本次在 `feat/board-deployment-flight-20260920` 继续维护，原四组也同步更新。保留现场静态 TF、关闭虚拟顶棚、自动地面参考、已知相机外参和投递槽偏移。仿真结果见后续验收报告；配置能展开、单元测试通过不等于实飞通过。
+
+| 目录 | 测试流程 | 结束条件 |
+| --- | --- | --- |
+| 01_visual_interrupt | 1.4m 直飞，视觉中断、接近、对齐、一次投递 | 恢复到低空高度后原地降落 |
+| 02_high_view_revisit | 低位入场、2.6m 完整高位环线、记忆 1–3 个高权重目标、逐个重访 | 已记忆目标全部投完后在最后目标附近降落；不追加全场补搜 |
+| 03_h_landing | 低位到前方约 2m 的 H、定点升高识别、视觉对齐 | 降落 H |
+| 04_corridor_landing | 实测引导点、在线自主避障、H 前定点升高 | 降落 H；出厂航点留空，必须测量后填写 |
+| 05_low_multi | 低位搜索、中断、投递、恢复搜索，默认两投 | 完成指定 1–3 投后原地降落 |
+| 06_high_priority | 高位搜索，满足当前 TOP3 支持条件后提前中断、低位重访 | 已冻结目标全部投完后在最后目标附近降落 |
+| 07_memory_only | 完整高位环线，只记录目标，规划下降 | 无投递指令，完成记忆后原地降落 |
+| 08_full_mission | 高位搜索、低空重访三投、走廊、H | 完整任务；走廊引导点和 H 坐标必须实测填写 |
+
+共同默认：4×4m 工作区；固定起飞坐标系 +X 向前、+Y 向左；巡航 0.5m/s、加速度 0.35m/s²；低位飞控中心离地 1.4m，高位 2.6m，投递高度由 `drop_agl` 单独配置。地面静置时采样飞控位置，利用已知起落架高度建立地面零点，不把 local Z=0 当成相机到地距离。
+
+## 继承了哪些板端成果
+
+- `map → camera_init` 使用现场已用的单位静态 TF；`navigation_frame_adapter` 同时转换位姿、里程计和任务设定点。静态 TF 只描述两坐标系的固定关系，不是静态点云地图。
+- 虚拟顶棚始终关闭（`virtual_ceil_height=-0.1`），包括高位下降切低位、最后一投切走廊的参数阶段。控制高度上限仍保留。
+- 正常三维膨胀使用水平 0.275m、上 0.20m、下 0.10m；0.10m 体素使有效离散边界需要按实际地图检查，不能等同于精确圆形半径。
+- 四种高位模块（02/06/07/08）启用最新树冠中部障碍柱，低位/H/走廊专项使用真实三维地图。障碍柱采用分量约束和有限填充，不再把大型连通环带整体封死。
+- 高位单帧类别框置信度 ≥0.60 可形成导航粗线索，不等于投递许可。提前中断仍要求三个高权重类别满足支持条件，其中 panzer 需要精修支持。低空确认相邻有效观测可间隔 1s；对齐稳定帧与释放许可不放宽。
+- 继承轨迹进度、目标身份和 FSM 恢复修复；共享恢复高度按 float32 对齐，恢复设定点额外高 0.10m，避免等于阈值却不能完成交接。
+- 相机旋转与像素补偿继承 `known_rig.yaml`；槽位偏移继承板载源码中的三组不同偏移。这些偏移仍是旧控制的固定坐标补偿，不宣称已经完成机体系刚性外参标定。
+
+来源 revision 和同步文件详见 `docs/deployment/modular_trials_20260927/sources.json`。
+
+## 板端运行
+
+先编译本分支两个 workspace，参考 `deployment/BOARD_DEPLOYMENT.md`。每组目录的 `start.sh preview` 检查定位、地图、视觉和录像；`start.sh flight` 启动控制输出，仍由现场执行解锁/OFFBOARD与任务启动。不要把仿真的自动解锁入口带到实机。
+
+```bash
+bash deployment/board_trials_4x4/01_visual_interrupt/start.sh preview --model /实际路径/model.rknn
+bash deployment/board_trials_4x4/01_visual_interrupt/start.sh flight --model /实际路径/model.rknn
+```
+
+默认 **模拟投递**，独立 `/board_trials/mock_servo` 只返回软件 ACK，不连接 PWM。实投仅在 01/02/05/06/08 提供 `start_real.sh`，复用试飞组已有的 `/legacy/Servo_raw`，不重写舵机驱动。实投启动前检查该服务类型为 `patrol_control/Servo`；控制请求仍经 `/board_trials/Servo` 许可代理，不能绕过释放条件。
+
+```bash
+# 现场确认机构及实投条件后，才使用：
+bash deployment/board_trials_4x4/01_visual_interrupt/start_real.sh --model /实际路径/model.rknn
+```
+
+03/07 不允许真实投递；04 同样没有投递阶段。04/08 的空走廊配置会明确拒绝启动，不自动使用仿真航点。每次保留下视原始与视觉叠加视频、坐标/候选/许可事件、飞行轨迹和结束结果；缺失候选、未投完、失败后降落均不能记为成功。
+
+## 同链仿真
+
+`common/uav_board_trials/launch/simulation.launch` 复用上述板端配置生成器、任务管理器、控制、Frame Adapter、释放代理和录像节点。区别仅为 Gazebo/PX4/LIO 模拟输入、笔记本 PyTorch 后端、模拟舵机及仿真自动启动/观察器。板端 `trial_manager.py` 仍拒绝模拟时钟，独立 `trial_sim_manager.py` 要求模拟时钟、统一 run 目录与 mock/none 执行器。
+
+八个场景由 `prepare_simulation.py` 分别生成：直线靶、树与高位环线、前方 H、两扇 80cm 门、顺序两靶、提前中断三靶、只记忆两靶、三靶接双门/H。场景工作区为 4×4m，起飞边缘后方另留 0.6m 起飞缓冲区；该缓冲区只用于仿真起飞净空，不扩展任务航点。
+
+仿真 MAVROS 输入使用 `map` 标签，适配后为 `camera_init`，与板端接线一致。真值坐标仅生成物理场景及验收图，不输入任务识别或投递控制。
+
+```bash
+cd /实际路径/本仓库
+UAV_WS="$PWD/patrol_uav_ws-patrol_planner" VISION_WS="$PWD/vision_ws" \
+SIM_STORAGE_GUARD_PATH=/mnt/f SIM_NO_RECORD=1 SIM_RUN_AUTHORIZED=1 \
+bash top_level_scripts/sim_run.sh board8_01_visual_interrupt \
+deployment/board_trials_4x4/common/uav_board_trials/scripts/run_simulation.sh \
+visual_interrupt /实际路径/best.pt
+```
+
+`SIM_NO_RECORD=1` 仅关闭宿主屏幕录制；每组 Gazebo 俯视、相机原始、视觉叠加三路录像始终启动，保存在该 run 的 `generated/`。其他 trial 名称为表格目录去掉数字后的对应注册名：`high_view`、`landing`、`corridor_landing`、`low_multi`、`high_priority`、`memory_only`、`full_mission`。

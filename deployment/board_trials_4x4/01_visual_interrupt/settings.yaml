@@ -17,3 +17,5 @@ search_line_x:
 - 1.8
 - 2.4
 - 3.0
+actuator_mode: mock
+raw_servo_service: /legacy/Servo_raw

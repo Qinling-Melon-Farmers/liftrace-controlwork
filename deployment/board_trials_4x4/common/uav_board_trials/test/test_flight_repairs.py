@@ -33,7 +33,7 @@ class FlightRepairs(unittest.TestCase):
                 ref=generate(ROOT,directory,settings,(0.,0.,0.),rig)
                 params=yaml.safe_load((Path(directory)/'overrides.yaml').read_text())
                 prefix='/fast_planner_node/sdf_map/'
-                self.assertEqual([params[prefix+k] for k in ('obstacles_inflation','obstacles_inflation_up','obstacles_inflation_down')],[.25,.2,.1])
+                self.assertEqual([params[prefix+k] for k in ('obstacles_inflation','obstacles_inflation_up','obstacles_inflation_down')],[.275,.2,.1])
                 self.assertEqual(params[prefix+'horizontal_avoidance/enabled'],folder=='02_high_view_revisit')
                 self.assertAlmostEqual(params[prefix+'horizontal_avoidance/obstacle_min_z']-ref['ground_z'],.4)
 

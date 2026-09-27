@@ -22,10 +22,13 @@ class FullTests(unittest.TestCase):
         self.assertEqual(self.r.orders[-1]['scope'],'COARSE_ORDER_UNAVAILABLE_REQUIRES_3D_PLANNER')
         self.assertEqual(self.r.core.committed_slots,0)
 
-    def test_timeout_delivers_other_hints_before_retrying_deferred_target(self):
-        self.to_capture();deferred=self.r.selected.class_name
-        now=self.r.wait_until+.1;self.map(now)
-        out=self.r.tick(now,self.r.selected.xy)
+    def test_motion_failure_delivers_other_hints_before_retrying_deferred_target(self):
+        self.top3();self.finish(103.);self.map(104.);self.r.tick(104.,(0.,0.))
+        self.map(110.);self.finish(110.)
+        deferred=self.r.selected.class_name;now=111.;self.map(now)
+        action=self.r.core.active_action;self.seq+=1
+        failure=replace(result_for(action,self.seq,status='FAILED',terminal=True),event_stamp_ns=int(now*1e9))
+        out=self.r.apply_result(failure,now,self.r._current_xy)
         self.assertEqual(self.r.stage,'REVISIT')
         self.assertNotEqual(self.r.selected.class_name,deferred)
         self.assertIsNone(self.r.fallback_started)
@@ -41,7 +44,7 @@ class FullTests(unittest.TestCase):
             self.r.apply_result(replace(release_ack(action,self.seq),event_stamp_ns=int((now+1)*1e9)),now+1,h.xy)
             self.seq+=1;self.map(now+2)
             out=self.r.apply_result(replace(result_for(action,self.seq,status='SUCCEEDED',stage='RECOVERY',terminal=True),event_stamp_ns=int((now+2)*1e9)),now+2,h.xy)
-            if slot<3:self.finish(now+5);now+=10
+            if slot<3:self.finish(now+5);now+=7
         self.assertEqual(delivered[-1],deferred)
         self.assertEqual(len(set(delivered)),3)
         self.assertEqual(self.r.revisit_counts[deferred],2)
@@ -51,15 +54,18 @@ class FullTests(unittest.TestCase):
 
     def test_all_reacquisition_failures_are_bounded_before_coverage(self):
         self.to_capture();seen=[]
-        for i in range(6):
+        for i in range(3):
             seen.append(self.r.selected.class_name)
             now=self.r.wait_until+.1;self.map(now)
             out=self.r.tick(now,self.r.selected.xy)
-            if i<5:
+            if i<2:
                 self.assertEqual(self.r.stage,'REVISIT')
                 self.finish(now+1)
         self.assertEqual(len(set(seen[:3])),3)
-        self.assertEqual(self.r.revisit_counts,dict.fromkeys(self.r.required,2))
+        self.assertEqual(self.r.revisit_counts,dict.fromkeys(self.r.required,1))
+        self.assertFalse(self.r._all_top(now))
+        self.assertFalse(self.r.unreachable_classes)
+        self.assertIsNone(self.r.degraded_from)
         self.assertEqual(self.r.stage,'LOW_COVERAGE')
         self.assertEqual(self.r.core.committed_slots,0)
         self.assertEqual(self.r.core.started_at,100.)
@@ -220,7 +226,158 @@ class FullTests(unittest.TestCase):
         self.assertTrue(self.r._alternative)
         self.r.tick(113.,(0.,0.));self.map(122.);self.r.tick(122.,(0.,0.))
         self.assertFalse(self.r._alternative)
+        self.assertEqual(self.r.skipped_survey_xy,[(1.,1.)])
         self.assertEqual(self.r.core.active_action.goal.x,2.)
+
+    def test_near_wall_hint_gets_bounded_local_visual_recheck(self):
+        from uav_mission.boundary_revisit import BoundaryRevisit
+        self.to_capture()
+        self.r.boundary_policy=BoundaryRevisit(enabled=True)
+        self.r.core.queue.delivered_classes={'bridge','panzer'}
+        h=self.r.top_hints['red_cross']
+        self.r.top_hints['red_cross']=replace(h,xy=(4.5,1.))
+        out=self.r._start_fallback(114.,'revisit_budget_exhausted')
+        self.assertEqual(self.r.stage,'LOCAL_WALL_VERIFY')
+        self.assertEqual(out.action.command,'SEARCH')
+        self.assertEqual(self.r.core.committed_slots,0)
+        self.assertTrue(all(self.r.boundary_policy.admissible((p.x,p.y))
+                            for p in self.r.route.waypoints))
+        self.assertEqual(len(self.r.route.waypoints),2)
+        self.r.update_pose((4.1,1.,1.18),114.2,'camera_init')
+        self.r.ingest([candidate(target_id=99,class_name='red_cross',
+                                 now=114.2,x=4.4,y=1.)],114.2)
+        out=self.r.tick(114.3,(4.1,1.))
+        self.assertEqual(out.action.command,'APPROACH')
+        self.assertEqual(self.r.stage,'DELIVERY')
+
+    def test_fresh_near_wall_target_approaches_from_legal_center(self):
+        from uav_mission.boundary_revisit import BoundaryRevisit
+        self.to_capture()
+        self.r.boundary_policy=BoundaryRevisit(enabled=True)
+        h=self.r.top_hints['red_cross']
+        self.r.selected=replace(h,xy=(4.5,1.))
+        self.r.reacquired={'target_id':h.key.target_id}
+        self.r.fresh_candidate=candidate(target_id=h.key.target_id,
+                                         class_name=h.class_name,now=114.,x=4.52,y=1.)
+        out=self.r.tick(114.1,(4.1,1.))
+        self.assertEqual(out.action.command,'APPROACH')
+        self.assertEqual(out.action.target_snapshot.x,4.52)
+        self.assertTrue(self.r.boundary_policy.admissible((out.action.goal.x,out.action.goal.y)))
+        self.assertNotEqual(out.action.goal.x,out.action.target_snapshot.x)
+        self.assertEqual(out.action,self.r.core.active_action)
+
+    def test_unconfirmed_wall_location_does_not_select_lower_weight_hint(self):
+        from uav_mission.boundary_revisit import BoundaryRevisit
+        self.to_capture();self.r.boundary_policy=BoundaryRevisit(enabled=True)
+        self.r.core.queue.delivered_classes={'bridge','panzer'}
+        h=self.r.top_hints['red_cross']
+        self.r.memory.retire_location(h,113_500_000_000)
+        wall=replace(h,xy=(4.5,1.))
+        self.r.memory.update([wall],h.epoch,114_000_000_000)
+        self.r.top_hints['red_cross']=wall
+        lower=replace(h,class_name='pillbox',xy=(3.,2.),key=replace(h.key,target_id=42))
+        self.r.memory.update([lower],lower.epoch,114_000_000_000)
+        self.r._start_fallback(114.,'revisit_budget_exhausted')
+        self.finish(116.);self.finish(118.)
+        self.assertIsNone(self.r.degraded_from)
+        self.assertFalse(self.r.unreachable_classes)
+        self.assertEqual(self.r.stage,'LOW_COVERAGE')
+        self.assertEqual(self.r.core.committed_slots,0)
+        # A fresh formal observation of the same class is still admissible.
+        self.r.ingest([candidate(target_id=99,class_name='red_cross',now=119.,x=3.,y=1.)],119.)
+        out=self.r.tick(119.1,(3.,1.))
+        self.assertEqual(out.action.command,'APPROACH')
+        self.assertEqual(out.action.target_class,'red_cross')
+
+    def test_near_wall_recheck_exhaustion_keeps_class_without_spending_slot(self):
+        from uav_mission.boundary_revisit import BoundaryRevisit
+        self.to_capture()
+        self.r.boundary_policy=BoundaryRevisit(enabled=True)
+        self.r.core.queue.delivered_classes={'bridge','panzer'}
+        h=self.r.top_hints['red_cross']
+        self.r.memory.retire_location(h,113_500_000_000)
+        wall=replace(h,xy=(4.5,1.))
+        self.r.memory.update([wall],h.epoch,114_000_000_000)
+        self.r.top_hints['red_cross']=wall
+        self.r._start_fallback(114.,'revisit_budget_exhausted')
+        self.finish(116.);out=self.finish(118.)
+        self.assertFalse(self.r.done)
+        self.assertIsNone(self.r.degraded_from)
+        self.assertFalse(self.r.unreachable_classes)
+        self.assertEqual(self.r.stage,'LOW_COVERAGE')
+        self.assertEqual(self.r.core.committed_slots,0)
+        self.assertEqual(out.action.command,'SEARCH')
+
+    def test_failed_near_wall_alignment_immediately_selects_lower_target(self):
+        from uav_mission.boundary_revisit import BoundaryRevisit
+        self.to_capture()
+        self.r.boundary_policy=BoundaryRevisit(enabled=True)
+        self.r.core.queue.delivered_classes={'bridge','panzer'}
+        h=self.r.top_hints['red_cross']
+        self.r.selected=replace(h,xy=(4.5,1.))
+        self.r.reacquired={'target_id':h.key.target_id}
+        self.r.fresh_candidate=candidate(target_id=h.key.target_id,
+                                         class_name=h.class_name,now=114.,x=4.52,y=1.)
+        lower=replace(h,class_name='pillbox',xy=(3.,2.),
+                      key=replace(h.key,target_id=42))
+        self.r.memory.update([lower],lower.epoch,114_000_000_000)
+        action=self.r.tick(114.1,(4.1,1.)).action
+        self.assertEqual(action.reason,'near_wall_bounded_approach')
+        self.seq+=1
+        failure=replace(result_for(action,self.seq,status='FAILED',stage='ALIGNMENT',
+                                   terminal=True,reason='near_wall_visual_alignment_unreachable'),
+                        event_stamp_ns=115_000_000_000)
+        out=self.r.apply_result(failure,115.,(4.1,1.))
+        self.assertTrue(out.accepted)
+        self.assertEqual(out.action.command,'SEARCH')
+        self.assertEqual(self.r.selected.class_name,'pillbox')
+        self.assertEqual(self.r.degraded_from,'red_cross')
+        self.assertEqual(self.r.core.committed_slots,0)
+        self.assertEqual(self.r.core.slots[0].status.value,'FREE')
+
+    def test_unrelated_target_failure_does_not_downgrade(self):
+        self.to_capture();h=self.r.selected
+        self.r.update_pose((*h.xy,1.18),114.,'camera_init')
+        self.r.ingest([candidate(target_id=h.key.target_id,class_name=h.class_name,
+                                 now=114.,x=h.xy[0],y=h.xy[1])],114.)
+        action=self.r.tick(114.1,h.xy).action
+        self.seq+=1
+        failure=replace(result_for(action,self.seq,status='FAILED',stage='ALIGNMENT',
+                                   terminal=True,reason='visual_quality_low'),
+                        event_stamp_ns=115_000_000_000)
+        self.r.apply_result(failure,115.,h.xy)
+        self.assertIsNone(self.r.degraded_from)
+        self.assertEqual(self.r.unreachable_classes,set())
+
+    def test_skipped_high_region_prioritizes_complete_low_lane(self):
+        self.r.fallback_route=CoverageRoute((
+            Waypoint(0.,-4.2,1.18),Waypoint(7.,-4.2,1.18),
+            Waypoint(7.,-3.5,1.18),Waypoint(0.,-3.5,1.18),
+            Waypoint(0.,-.1,1.18),Waypoint(7.,-.1,1.18),
+            Waypoint(7.,.6,1.18),Waypoint(0.,.6,1.18)),'south-first')
+        self.r.skipped_survey_xy=[(5.5,-3.5)]
+        self.finish(103.)
+        self.r._current_xy=(5.,-.5)
+        active=self.r.core.active_action
+        self.r.route.interrupt(active.decision_seq);self.r.core.active_action=None
+        self.r.top_hints={}
+        out=self.r._next_target(104.)
+        self.assertEqual(self.r.stage,'LOW_COVERAGE')
+        self.assertEqual([(p.x,p.y) for p in self.r.route.waypoints[:2]],
+                         [(7.,-3.5),(0.,-3.5)])
+        self.assertEqual(out.action.goal.y,-3.5)
+        self.assertEqual(len(self.r.route.waypoints),8)
+        self.assertTrue(any(e['stage']=='LOW_COVERAGE_SKIPPED_HIGH_PRIORITY' for e in self.r.events))
+
+    def test_multiple_skipped_points_in_one_sector_do_not_take_extra_lanes(self):
+        self.r._current_xy=(5.,-.5)
+        points=[Waypoint(x,y,1.18) for y in (-4.2,-3.5,-.1,.6)
+                for x in (0.,7.)]
+        self.r.skipped_survey_xy=[(5.5,-3.5),(5.5,-3.6),(5.5,.6)]
+        prioritized=self.r._prioritized_fallback(points)
+        self.assertEqual([p.y for p in prioritized[:4]],[.6,.6,-3.5,-3.5])
+        self.assertEqual(len(prioritized),len(points))
+        self.assertEqual(set(prioritized),set(points))
 
     def test_fallback_retains_delivered_state_and_uses_original_selection(self):
         self.finish(103.)
@@ -257,7 +414,7 @@ class FullTests(unittest.TestCase):
             out=self.r.apply_result(replace(result_for(action,self.seq,status='SUCCEEDED',stage='RECOVERY',terminal=True),event_stamp_ns=int((now+2)*1e9)),now+2,h.xy)
             if slot<3:
                 self.assertEqual(out.action.command,'SEARCH')
-                self.finish(now+5);now+=10
+                self.finish(now+5);now+=7
             else:
                 self.assertEqual(out.action.command,'RETURN_HOME')
                 self.assertEqual(self.r.core.phase,MissionPhase.POST_DELIVERY_ROUTE)

@@ -1,5 +1,6 @@
 <?xml version='1.0' encoding='utf-8'?>
 <launch>
+  <arg name="simulation" default="false" />
   <arg name="enable_control_output" default="false" />
   <arg name="cruise_speed" default="0.5" />
   <arg name="cruise_acceleration" default="0.35" />
@@ -10,10 +11,23 @@
   <arg name="low_z" />
   <arg name="image_topic" default="/camera/image_raw" />
   <arg name="camera_info_topic" default="/camera/camera_info" />
-  <arg name="raw_servo_service" value="/board_trials/mock_servo" />
+  <arg name="actuator_mode" default="mock" />
+  <arg name="raw_servo_service" default="/legacy/Servo_raw" />
   <arg name="map_frame" default="camera_init" />
-  <include file="$(find uav_vision)/launch/phase_d_board.launch">
+  <include file="$(find uav_vision)/launch/phase_d_board.launch" unless="$(arg simulation)">
     <arg name="model_path" value="$(arg model_path)" />
+    <arg name="image_topic" value="$(arg image_topic)" />
+    <arg name="camera_info_topic" value="$(arg camera_info_topic)" />
+    <arg name="map_frame" value="$(arg map_frame)" />
+    <arg name="ground_z" value="$(arg ground_z)" />
+    <arg name="class_profile" value="r2026" />
+    <arg name="require_alignment_context" value="true" />
+    <arg name="start_legacy_compat" value="false" />
+    <arg name="enable_debug_image" value="false" />
+  </include>
+  <include file="$(find uav_vision)/launch/phase_d.launch" if="$(arg simulation)">
+    <arg name="target_model_path" value="$(arg model_path)" />
+    <arg name="target_detector_launch_prefix" value="$(optenv VISION_PYTHON /home/xhj/miniconda3/envs/rl_drone/bin/python)" />
     <arg name="image_topic" value="$(arg image_topic)" />
     <arg name="camera_info_topic" value="$(arg camera_info_topic)" />
     <arg name="map_frame" value="$(arg map_frame)" />
@@ -37,7 +51,7 @@
       <arg name="waypoint_config" value="$(arg generated_dir)/control.yaml" />
       <arg name="planner_max_vel" value="$(arg cruise_speed)" />
       <arg name="planner_max_acc" value="$(arg cruise_acceleration)" />
-      <arg name="planner_obstacles_inflation" value="0.25" />
+      <arg name="planner_obstacles_inflation" value="0.275" />
       <arg name="planner_clearance_threshold" value="0.025" />
       <arg name="px4_max_distance" value="0.25" />
       <arg name="external_planner_max_command_z" value="$(eval float(arg('ground_z'))+2.9)" />
@@ -45,7 +59,7 @@
     <include file="$(find plan_manage)/launch/patrol_planner_px4_sim.launch" unless="$(arg enable_control_output)">
       <arg name="max_vel" value="$(arg cruise_speed)" />
       <arg name="max_acc" value="$(arg cruise_acceleration)" />
-      <arg name="obstacles_inflation" value=".25" />
+      <arg name="obstacles_inflation" value=".275" />
       <arg name="clearance_threshold" value=".025" />
       <arg name="start_waypoint_generator" value="false" />
       <arg name="map_size_x" value="10." />
@@ -54,7 +68,7 @@
     </include>
     <rosparam ns="/fast_planner_node" file="$(find uav_mission)/config/horizontal_planner.yaml" />
     <group ns="navigation">
-      <node pkg="uav_board_trials" type="trial_manager.py" name="mission_manager" output="screen" required="true">
+      <node pkg="uav_board_trials" type="$(eval 'trial_sim_manager.py' if arg('simulation') else 'trial_manager.py')" name="mission_manager" output="screen" required="true">
         <rosparam file="$(arg generated_dir)/runtime.yaml" />
         <param name="profile/path" value="$(find uav_mission)/config/competition_profiles.yaml" />
         <remap from="candidates" to="/uav_vision/targets" />
@@ -74,14 +88,14 @@
       <arg name="odom_topic" value="/navigation/local_odom" />
     </include>
   </group>
-  <include file="$(find uav_mission)/launch/release_guard.launch" if="$(eval arg('enable_control_output') and arg('mode') != 'landing')">
-    <arg name="raw_service_name" value="$(arg raw_servo_service)" />
+  <include file="$(find uav_mission)/launch/release_guard.launch" if="$(eval arg('enable_control_output') and arg('mode') not in ['landing','memory_only'])">
+    <arg name="raw_service_name" value="$(eval '/board_trials/mock_servo' if arg('actuator_mode') == 'mock' else arg('raw_servo_service'))" />
     <arg name="require_evidence_context" value="true" />
     <arg name="class_profile" value="r2026" />
     <arg name="pose_topic" value="/navigation/local_pose" />
     <arg name="public_service_name" value="/board_trials/Servo" />
   </include>
-  <node pkg="uav_board_trials" type="trial_auto_land.py" name="trial_auto_land" output="screen" required="true" if="$(eval arg('enable_control_output') and arg('mode') != 'landing')">
+  <node pkg="uav_board_trials" type="trial_auto_land.py" name="trial_auto_land" output="screen" required="true" if="$(eval arg('enable_control_output') and arg('mode') not in ['landing','high_view_full'])">
     <rosparam file="$(arg generated_dir)/auto_land.yaml" />
   </node>
   <rosparam file="$(arg generated_dir)/overrides.yaml" />
@@ -91,5 +105,5 @@
     <param name="fps" value="5" />
     <param name="width" value="640" />
   </node>
-  <node pkg="uav_board_trials" type="mock_servo.py" name="board_mock_servo" output="screen" required="true" if="$(eval arg('enable_control_output') and arg('mode') != 'landing')" />
+  <node pkg="uav_board_trials" type="mock_servo.py" name="board_mock_servo" output="screen" required="true" if="$(eval arg('enable_control_output') and arg('actuator_mode') == 'mock' and arg('mode') not in ['landing','memory_only'])" />
 </launch>

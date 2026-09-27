@@ -8,12 +8,15 @@ from geometry_msgs.msg import PoseStamped
 from sensor_msgs.msg import CameraInfo,Image
 from mavros_msgs.msg import State,ExtendedState
 from std_msgs.msg import String
-from trial_config import generate,validate_settings
+from trial_config import generate,validate_settings,TRIAL_FOLDERS,NO_DROP_MODES
 
 def main():
-    p=argparse.ArgumentParser();p.add_argument('trial',choices=['visual_interrupt','high_view','landing','corridor_landing']);p.add_argument('mode',choices=['preview','flight']);p.add_argument('--root',type=Path,required=True);p.add_argument('--model',type=Path);p.add_argument('--check-config',action='store_true');a=p.parse_args()
-    folder={'visual_interrupt':'01_visual_interrupt','high_view':'02_high_view_revisit','landing':'03_h_landing','corridor_landing':'04_corridor_landing'}[a.trial]
+    p=argparse.ArgumentParser();p.add_argument('trial',choices=sorted(TRIAL_FOLDERS));p.add_argument('mode',choices=['preview','flight']);p.add_argument('--root',type=Path,required=True);p.add_argument('--model',type=Path);p.add_argument('--check-config',action='store_true');p.add_argument('--real-release',action='store_true');a=p.parse_args()
+    folder=TRIAL_FOLDERS[a.trial]
     base=a.root/'deployment/board_trials_4x4';settings=yaml.safe_load((base/folder/'settings.yaml').read_text());rig=yaml.safe_load((base/'common/uav_board_trials/config/known_rig.yaml').read_text())
+    if settings.get('actuator_mode','mock')!='mock':p.error('settings must default to mock; use --real-release explicitly')
+    if a.real_release and (a.mode!='flight' or settings['mode'] in NO_DROP_MODES):p.error('--real-release requires a delivery flight module')
+    settings['actuator_mode']='real' if a.real_release else ('none' if settings['mode'] in NO_DROP_MODES else 'mock')
     try:validate_settings(settings)
     except ValueError as error:p.error(str(error))
     if a.check_config:
@@ -80,6 +83,11 @@ def main():
         args=['enable_control_output:='+str(a.mode=='flight').lower(),f'mode:={settings["mode"]}',f'model_path:={model}',f'generated_dir:={out}',f'ground_z:={reference["ground_z"]}',f'low_z:={reference["low_z"]}']
         args+=['cruise_speed:='+str(settings['cruise_speed']),'cruise_acceleration:='+str(settings['cruise_acceleration'])]
         args+=['image_topic:='+settings.get('image_topic','/camera/image_raw'),'camera_info_topic:='+settings.get('camera_info_topic','/camera/camera_info')]
+        args+=['actuator_mode:='+settings['actuator_mode'],'raw_servo_service:='+settings.get('raw_servo_service','/legacy/Servo_raw')]
+        if a.real_release:
+            rospy.wait_for_service(settings['raw_servo_service'],timeout=10.)
+            import rosservice
+            if rosservice.get_service_type(settings['raw_servo_service'])!='patrol_control/Servo':raise RuntimeError('Unexpected hardware Servo service type')
         app=launch('application',args)
         detections_seen=[False];control_rx=[-1e9]
         control_ready_sub=rospy.Subscriber('/navigation/setpoint_mission',PoseStamped,lambda msg:control_rx.__setitem__(0,time.monotonic()),queue_size=1)
@@ -124,7 +132,7 @@ def main():
                 except subprocess.TimeoutExpired:os.killpg(child.pid,signal.SIGTERM);child.wait(timeout=10)
         for stream in files:stream.close()
         s=state[0];e=extended[0]
-        (out/'supervisor_result.json').write_text(json.dumps(dict(end_reason=end_reason,ever_armed=ever_armed[0],ever_airborne=ever_airborne[0],armed=s.armed if s else None,mode=s.mode if s else None,landed_state=e.landed_state if e else None,trial=a.trial),indent=2))
+        (out/'supervisor_result.json').write_text(json.dumps(dict(end_reason=end_reason,ever_armed=ever_armed[0],ever_airborne=ever_airborne[0],armed=s.armed if s else None,mode=s.mode if s else None,landed_state=e.landed_state if e else None,trial=a.trial,actuator_mode=settings['actuator_mode']),indent=2))
         print('Trial application stopped; device MAVROS/driver2 left running. Logs:',out,flush=True)
         subprocess.run([os.environ.get('BOARD_PYTHON','/usr/bin/python3'),str(Path(__file__).with_name('finish_recording.py')),str(out)],check=False)
 if __name__=='__main__':main()
