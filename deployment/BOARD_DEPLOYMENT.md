@@ -1,5 +1,7 @@
 # 板端部署与试飞分支
 
+2026-09-28：[新增两轮高位巡航复盘与研究版适用性](../docs/deployment/flight_pair_20260928/REPORT.md)。真实装甲车先记成bridge，低位改类未更新冻结事务，后续真bridge已确认却被已投类别过滤；包含八份回放，在线代码未改。
+
 2026-09-27晚：试飞组`high_view_priority_search.launch`实飞bag的[复盘与panzer/H优化计划](../docs/deployment/flight_review_20260927/REPORT.md)。该轮是高位航点中断链，未运行本八组的先建队列再重访策略。
 
 2026-09-27当前：[导航仓“板端参考分支”交接说明](../docs/deployment/board_reference_20260927/README.md)。八组已对齐现场负载/建图档案，膨胀25/20/10cm；新配置只做离线验证与构建，未实跑。

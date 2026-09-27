@@ -1,5 +1,7 @@
 # 2026-09-27 19:41 高位搜索实飞复盘
 
+2026-09-28后续：[调整靶位的两轮复盘](../flight_pair_20260928/REPORT.md)发现不同故障：真实panzer先以bridge启动投递，低位类别纠正未进入事务，真bridge后来被已投去重。不能沿用本轮“仅一次合格观察”的结论解释新包。
+
 [多画面播放器](index.html) · [汇报视频](../../../logs/flight_review_20260927_194157/replay/dashboard.mp4) · [相机视觉叠加](../../../logs/flight_review_20260927_194157/replay/camera_annotated.mp4) · [航迹动画](../../../logs/flight_review_20260927_194157/replay/trajectory.mp4) · [panzer优化计划](PANZER_PLAN.md)
 
 ## 结论
