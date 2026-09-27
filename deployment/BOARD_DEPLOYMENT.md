@@ -39,7 +39,7 @@ bash deployment/board_trials_4x4/start_camera.sh /dev/video0
 
 如果现场相机进程已在发布同名话题，复用该进程，不重复启动。四套测试入口不自动解锁或调用任务开始服务。应用READY只表示输入/控制输出就绪；起飞、控制就绪和航线启动是后续步骤，不能把它们混为一件事。
 
-仓库不含RKNN权重、build/devel、原始bag/视频。模型使用板端已有`runtime_models/merged_standard_fp32.rknn`，元数据在`vision_ws/src/uav_vision/config`。不能只复制某个settings.yaml到旧包而忽略匹配源码与消息版本。
+仓库不含RKNN权重、build/devel、原始bag/视频。模型使用板端已有`runtime_models/flight_5cls_20260928_fp16.rknn`，元数据在`vision_ws/src/uav_vision/config`。不能只复制某个settings.yaml到旧包而忽略匹配源码与消息版本。
 
 ## 现场旧工程留档
 
@@ -61,3 +61,10 @@ bash deployment/board_trials_4x4/start_camera.sh /dev/video0
 ## 2026-09-27 模块化专项更新
 
 八组专项共用最新障碍柱、视觉记忆与坐标适配实现，原四组同步维护。请以 [八组说明](board_trials_4x4/MODULES.md) 为入口；默认模拟投递，已有板端舵机接线由显式实投入口继承。仿真入口独立，实机入口不自动解锁、不自动调用任务启动服务。
+
+
+## 2026-09-28 五分类模型入口
+
+八组共享 `flight_5cls_20260928_fp16.rknn` 与 `vision_ws/src/uav_vision/config/flight_5cls_20260928_metadata.yaml`。默认模型名已更新，可用 `--model <路径> --metadata <匹配YAML>` 显式选择。仅换模型不要沿用六类表：red_cross现在是输出ID4；内部ROS消息仍使用类别名，任务/槽位接口不变。旧模型回退必须两个参数一起指定。
+
+模型包单独交付；仓库只含配置、适配、工具与报告。默认模拟投递、显式实投入口、现场接线、静态TF、关闭虚拟顶棚、25/20/10cm膨胀保持原值。新增六组检查排除走廊两组；本次结果见 `docs/verification/model_five_class_20260928/REPORT.md`，不能沿用9月27日旧参数下“6组通过”的结论。板端NPU/实投仍需现场验收。

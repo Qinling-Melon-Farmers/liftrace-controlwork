@@ -50,7 +50,7 @@
 OPENCV_CMAKE_DIR=/usr/lib/aarch64-linux-gnu/cmake/opencv4 BUILD_JOBS=2 bash top_level_scripts/build_competition.sh
 source vision_ws/devel/setup.bash
 source patrol_uav_ws-patrol_planner/devel/setup.bash --extend
-export UAV_VISION_RKNN_MODEL_PATH="$PWD/runtime_models/merged_standard_fp32.rknn"
+export UAV_VISION_RKNN_MODEL_PATH="$PWD/runtime_models/flight_5cls_20260928_fp16.rknn"
 ```
 
 模型复用已部署RKNN；若模型放在旧工程，可把上述变量指向那个实际文件，不需要重新训练。板端使用既有可导入RKNN Lite2的ROS Python环境，应用不启动PyTorch。`BOARD_PYTHON`只选择监督脚本解释器，不会重写已生成的Catkin节点shebang；默认构建使用板端系统ROS Python。若原板端实际使用其他既有解释器，需要以相同`PYTHON_EXECUTABLE`重新构建两工作区，不在系统Python临时安装模型包。
@@ -117,3 +117,10 @@ known_rig继承的12cm表仅为试飞组已有camera_init XY目标偏移，尚�
 原四组和新增四组使用同一公共实现，最新操作与继承项见 [MODULES.md](MODULES.md)。默认模拟投递，实投另有显式入口；仿真场景独立于实测空航点设置。
 
 离线导出完整回放：`python common/uav_board_trials/scripts/report_simulation.py --finish-videos --dashboard`（在本目录执行，使用rl_drone）。每轮已有原相机、视觉叠加、Gazebo俯视和同屏航迹重建视频。
+
+
+## 2026-09-28 五分类模型入口
+
+八组共享 `flight_5cls_20260928_fp16.rknn` 与 `vision_ws/src/uav_vision/config/flight_5cls_20260928_metadata.yaml`。默认模型名已更新，可用 `--model <路径> --metadata <匹配YAML>` 显式选择。仅换模型不要沿用六类表：red_cross现在是输出ID4；内部ROS消息仍使用类别名，任务/槽位接口不变。旧模型回退必须两个参数一起指定。
+
+模型包单独交付；仓库只含配置、适配、工具与报告。默认模拟投递、显式实投入口、现场接线、静态TF、关闭虚拟顶棚、25/20/10cm膨胀保持原值。新增六组检查排除走廊两组；本次结果见 `docs/verification/model_five_class_20260928/REPORT.md`，不能沿用9月27日旧参数下“6组通过”的结论。板端NPU/实投仍需现场验收。

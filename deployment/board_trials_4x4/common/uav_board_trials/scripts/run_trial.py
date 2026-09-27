@@ -11,7 +11,7 @@ from std_msgs.msg import String
 from trial_config import generate,validate_settings,TRIAL_FOLDERS,NO_DROP_MODES,mapping_profile
 
 def main():
-    p=argparse.ArgumentParser();p.add_argument('trial',choices=sorted(TRIAL_FOLDERS));p.add_argument('mode',choices=['preview','flight']);p.add_argument('--root',type=Path,required=True);p.add_argument('--model',type=Path);p.add_argument('--check-config',action='store_true');p.add_argument('--real-release',action='store_true');a=p.parse_args()
+    p=argparse.ArgumentParser();p.add_argument('trial',choices=sorted(TRIAL_FOLDERS));p.add_argument('mode',choices=['preview','flight']);p.add_argument('--root',type=Path,required=True);p.add_argument('--model',type=Path);p.add_argument('--metadata',type=Path);p.add_argument('--check-config',action='store_true');p.add_argument('--real-release',action='store_true');a=p.parse_args()
     folder=TRIAL_FOLDERS[a.trial]
     base=a.root/'deployment/board_trials_4x4';settings=yaml.safe_load((base/folder/'settings.yaml').read_text());rig=yaml.safe_load((base/'common/uav_board_trials/config/known_rig.yaml').read_text())
     if settings.get('actuator_mode','mock')!='mock':p.error('settings must default to mock; use --real-release explicitly')
@@ -27,8 +27,10 @@ def main():
     conflicts=existing.intersection({'/laserMapping','/freedom','/patrol_control','/fast_planner_node','/navigation_frame_adapter','/navigation/mission_manager','/target_detector_rknn','/navigation/planner_bridge','/release_permission_arbiter','/guarded_servo_proxy','/trial_auto_land','/board_mock_servo','/trial_recorder','/map_camera_alignment'})
     if conflicts:raise RuntimeError('Stop the old application first: '+','.join(sorted(conflicts)))
     if '/mavros' not in existing:raise RuntimeError('Start device MAVROS and driver2 first')
-    model=a.model or Path(os.environ.get('UAV_VISION_RKNN_MODEL_PATH',str(a.root/'runtime_models/merged_standard_fp32.rknn')))
+    model=a.model or Path(os.environ.get('UAV_VISION_RKNN_MODEL_PATH',str(a.root/'runtime_models/flight_5cls_20260928_fp16.rknn')))
     if not model.is_file():raise RuntimeError('RKNN model not found; set UAV_VISION_RKNN_MODEL_PATH once or use --model')
+    metadata=a.metadata or a.root/'vision_ws/src/uav_vision/config/flight_5cls_20260928_metadata.yaml'
+    if not metadata.is_file():raise RuntimeError('Model metadata not found; use --metadata with matching weights')
     out=a.root/'logs'/('board_'+a.trial+'_'+time.strftime('%Y%m%d_%H%M%S'));out.mkdir(parents=True,exist_ok=False)
     if shutil.disk_usage(out).free<2*1024**3:raise RuntimeError('Less than 2GB recording space available')
     lock=threading.RLock();samples=deque(maxlen=400);state=[None];camera=[None];extended=[None];ever_armed=[False];ever_airborne=[False];image_ref=[None];lio_ref=[None];end_reason='interrupted_or_error'
@@ -80,7 +82,7 @@ def main():
         if reference is None:raise RuntimeError('No stationary disarmed camera_init reference. Inspect map<->camera_init conversion, initial heading and camera; no manual Z guess was applied')
         subs[-1].unregister()
         (out/'camera_info.json').write_text(json.dumps(dict(width=c.width,height=c.height,K=list(c.K),D=list(c.D),frame=c.header.frame_id),indent=2))
-        args=['enable_control_output:='+str(a.mode=='flight').lower(),f'mode:={settings["mode"]}',f'model_path:={model}',f'generated_dir:={out}',f'ground_z:={reference["ground_z"]}',f'low_z:={reference["low_z"]}']
+        args=['enable_control_output:='+str(a.mode=='flight').lower(),f'mode:={settings["mode"]}',f'model_path:={model}',f'metadata_path:={metadata}',f'generated_dir:={out}',f'ground_z:={reference["ground_z"]}',f'low_z:={reference["low_z"]}']
         args+=['cruise_speed:='+str(settings['cruise_speed']),'cruise_acceleration:='+str(settings['cruise_acceleration'])]
         args+=['image_topic:='+settings.get('image_topic','/camera/image_raw'),'camera_info_topic:='+settings.get('camera_info_topic','/camera/camera_info')]
         args+=['actuator_mode:='+settings['actuator_mode'],'raw_servo_service:='+settings.get('raw_servo_service','/legacy/Servo_raw')]

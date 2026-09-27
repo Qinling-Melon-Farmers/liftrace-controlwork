@@ -16,16 +16,17 @@ def probe(path):
     except (ValueError,KeyError,IndexError):return None
 
 def main():
-    ap=argparse.ArgumentParser();ap.add_argument('--root',type=Path,default=Path(__file__).resolve().parents[5]);ap.add_argument('--finish-videos',action='store_true');ap.add_argument('--dashboard',action='store_true');args=ap.parse_args()
-    root=args.root;out=root/'docs/verification/board_modules_20260927';out.mkdir(parents=True,exist_ok=True)
+    ap=argparse.ArgumentParser();ap.add_argument('--root',type=Path,default=Path(__file__).resolve().parents[5]);ap.add_argument('--finish-videos',action='store_true');ap.add_argument('--dashboard',action='store_true');ap.add_argument('--runs-glob',default='board8_*');ap.add_argument('--output',type=Path);ap.add_argument('--trials',nargs='+',choices=list(TRIAL_FOLDERS));args=ap.parse_args()
+    root=args.root;out=args.output or root/'docs/verification/board_modules_20260927';out.mkdir(parents=True,exist_ok=True)
     cases={}
-    for run in sorted((root/'logs').glob('board8_*')):
+    for run in sorted((root/'logs').glob(args.runs_glob)):
         path=run/'gate_status.json'
         if path.exists():
             g=json.loads(path.read_text());trial=g.get('trial')
             if trial in TRIAL_FOLDERS:cases[trial]=(run,g)
     rows=[];sections=[]
     for trial,folder in TRIAL_FOLDERS.items():
+        if args.trials and trial not in args.trials:continue
         if trial not in cases:rows.append(dict(trial=trial,status='PENDING'));continue
         run,g=cases[trial];data=run/'generated';reference=json.loads((data/'ground_reference.json').read_text());scene=json.loads((data/'scene.json').read_text())
         if args.finish_videos:subprocess.run([sys.executable,str(Path(__file__).with_name('finish_recording.py')),str(data)],check=True)
@@ -81,7 +82,7 @@ def main():
         rows.append(row)
     (out/'summary.json').write_text(json.dumps(rows,ensure_ascii=False,indent=2))
     table='\n'.join(f'| {r["trial"]} | {r["status"]} | {r.get("committed","—")}/{r.get("expected","—")} | {r.get("mission_s","—")} | {r.get("reason","—")} |' for r in rows)
-    (out/'RESULTS.md').write_text('# 八组板端同链仿真结果\n\n'+ '| 专项 | 状态 | 投递 | 任务ROS秒 | 结束原因 |\n| --- | --- | --- | --- | --- |\n'+table+'\n\n任务计时从手动启动服务被接受开始，不包含前置自动起飞。视频和图表覆盖准备、起飞及结束；估计高度不等同于 Gazebo 真值测量。\n\n三路录像逐组检查可解码，完整入口：[index.html](index.html)。仿真使用笔记本 PyTorch 和模拟执行器，不能替代板端 RKNN/机构实投验收。\n')
-    (out/'index.html').write_text('<!doctype html><meta charset="utf-8"><title>八组专项仿真验收</title><style>body{font:16px sans-serif;max-width:1200px;margin:auto;padding:24px;background:#fafafa}video,img{max-width:100%;width:100%}section{background:white;padding:20px;margin:20px 0;border:1px solid #ddd}summary{cursor:pointer;padding:10px}</style><h1>八组板端专项：同链仿真与录像</h1><p>真实 Gazebo/PX4/定位/规划/视觉链；模拟执行器。三路录像分别播放；固定5fps编码，消息丢帧会缩短视频时长，准确时序以帧时间CSV与ROS计时为准。任务计时不包含前置起飞。图中蓝线为飞控估计；有独立真值记录的轮次另画橙线（高度为Gazebo世界Z），目标与障碍轮廓仅用于事后分析。</p>'+''.join(sections))
+    (out/'RESULTS.md').write_text('# 板端同链仿真结果\n\n'+ '| 专项 | 状态 | 投递 | 任务ROS秒 | 结束原因 |\n| --- | --- | --- | --- | --- |\n'+table+'\n\n任务计时从手动启动服务被接受开始，不包含前置自动起飞。视频和图表覆盖准备、起飞及结束；估计高度不等同于 Gazebo 真值测量。\n\n三路录像逐组检查可解码，完整入口：[index.html](index.html)。仿真使用笔记本 PyTorch 和模拟执行器，不能替代板端 RKNN/机构实投验收。\n')
+    (out/'index.html').write_text('<!doctype html><meta charset="utf-8"><title>专项仿真验收</title><style>body{font:16px sans-serif;max-width:1200px;margin:auto;padding:24px;background:#fafafa}video,img{max-width:100%;width:100%}section{background:white;padding:20px;margin:20px 0;border:1px solid #ddd}summary{cursor:pointer;padding:10px}</style><h1>板端专项：同链仿真与录像</h1><p>真实 Gazebo/PX4/定位/规划/视觉链；模拟执行器。三路录像分别播放；固定5fps编码，消息丢帧会缩短视频时长，准确时序以帧时间CSV与ROS计时为准。任务计时不包含前置起飞。图中蓝线为飞控估计；有独立真值记录的轮次另画橙线（高度为Gazebo世界Z），目标与障碍轮廓仅用于事后分析。</p>'+''.join(sections))
     print(json.dumps([dict(trial=r['trial'],status=r['status']) for r in rows],indent=2))
 if __name__=='__main__':main()

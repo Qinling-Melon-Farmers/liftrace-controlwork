@@ -38,6 +38,10 @@ for folder in TRIAL_FOLDERS.values():
             if s['mode'] in HIGH_MODES:assert values['/navigation/mission_manager/high_view_probe/config/staging_xy']==[.6,.05]
             assert not any(n.package in ('gazebo_ros','actuator_pwm') for n in cfg.nodes)
             assert 'trial_recorder' in nodes and 'target_detector_rknn' in nodes
+            metadata=Path(values['/target_detector_rknn/metadata_path'])
+            contract=yaml.safe_load(metadata.read_text())
+            assert list(contract['names'].values())==['bridge','panzer','pillbox','tent','red_cross']
+            assert contract['output_channels']==9 and contract['box_format']=='xywh'
             assert ('patrol_control' in nodes)==(enabled=='true')
             assert ('board_mock_servo' in nodes)==(enabled=='true' and s['mode'] not in NO_DROP_MODES)
             assert ('trial_auto_land' in nodes)==(enabled=='true' and s['mode'] not in H_MODES)

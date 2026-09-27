@@ -6,6 +6,7 @@
   <arg name="cruise_acceleration" default="0.35" />
   <arg name="mode" default="visual_interrupt" />
   <arg name="model_path" />
+  <arg name="metadata_path" default="$(find uav_vision)/config/flight_5cls_20260928_metadata.yaml" />
   <arg name="generated_dir" />
   <arg name="ground_z" />
   <arg name="low_z" />
@@ -16,6 +17,7 @@
   <arg name="map_frame" default="camera_init" />
   <include file="$(find uav_vision)/launch/phase_d_board.launch" unless="$(arg simulation)">
     <arg name="model_path" value="$(arg model_path)" />
+    <arg name="metadata_path" value="$(arg metadata_path)" />
     <arg name="image_topic" value="$(arg image_topic)" />
     <arg name="camera_info_topic" value="$(arg camera_info_topic)" />
     <arg name="map_frame" value="$(arg map_frame)" />
