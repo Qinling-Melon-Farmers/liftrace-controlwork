@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
 """SITL-only starter and observer. No target truth enters the mission."""
-import json,os,sys,time,threading
+import csv,json,os,sys,time,threading
 from pathlib import Path
 import rospy,yaml,rospkg
 from std_msgs.msg import String,Bool
 from mavros_msgs.msg import State,ExtendedState
 from geometry_msgs.msg import PoseStamped
+from gazebo_msgs.msg import ModelStates
 from std_srvs.srv import Trigger
 sys.path.insert(0,str(Path(rospkg.RosPack().get_path('uav_board_trials'))/'scripts'))
 from trial_result import evaluate
@@ -17,12 +18,13 @@ class Gate:
         if rospy.get_param('/board_trials/actuator_mode') not in ('mock','none'):
             raise RuntimeError('Real actuator forbidden in simulation')
         self.out=Path(rospy.get_param('~directory'));self.trial=rospy.get_param('~trial')
+        self.truth_file=(self.out/'truth_pose.csv').open('w');self.truth_csv=csv.writer(self.truth_file);self.truth_csv.writerow(['t','x','y','z','vx','vy','vz']);self.truth_at=-1.;self.truth=None
         self.settings=yaml.safe_load((self.out/'settings.yaml').read_text())
         self.latest={};self.state=None;self.ext=None;self.pose=None;self.ready=False
         self.start_wall=time.monotonic();self.start_ros=None;self.last_try=0.;self.started=False;self.airborne=False;self.finish_at=None
         self.last_progress=0.;self.done=False;self.lock=threading.RLock();self.commands=[];self.stages=[];self.start_rejections=[]
         self.service=rospy.ServiceProxy('/navigation/start_mission',Trigger)
-        self.subs=[]
+        self.subs=[rospy.Subscriber('/gazebo/model_states',ModelStates,self.on_truth,queue_size=1)]
         for key,topic in [('mission','/navigation/mission_status'),('high','/uav_high_view/probe_status'),('land_handoff','/board_trials/auto_land_status'),('contact','/mission/gazebo_contact_status')]:
             self.subs.append(rospy.Subscriber(topic,String,lambda msg,k=key:self.text(k,msg),queue_size=1))
         self.subs.extend([rospy.Subscriber('/mavros/state',State,lambda m:setattr(self,'state',m),queue_size=1),
@@ -31,6 +33,14 @@ class Gate:
           rospy.Subscriber('/mission/control_ready',Bool,lambda m:setattr(self,'ready',m.data),queue_size=1)])
         self.worker=threading.Thread(target=self.run,daemon=True);self.worker.start()
         rospy.on_shutdown(self.shutdown)
+    def on_truth(self,msg):
+        if 'iris_mid360' not in msg.name:return
+        now=rospy.Time.now().to_sec()
+        if now-self.truth_at<.2:return
+        self.truth_at=now;i=msg.name.index('iris_mid360');p=msg.pose[i].position;v=msg.twist[i].linear
+        with self.lock:
+            if self.truth_file.closed:return
+            self.truth=[p.x,p.y,p.z];self.truth_csv.writerow([now,p.x,p.y,p.z,v.x,v.y,v.z]);self.truth_file.flush()
     def text(self,key,msg):
         try:value=json.loads(msg.data)
         except ValueError:return
@@ -59,7 +69,7 @@ class Gate:
             checks['video_recorded']=(self.out/'camera_frames.csv').exists() and (self.out/'overview.mp4').exists()
             result.update(scope='board_runtime_SITL',checks=checks,commands=self.commands,stages=self.stages,
               elapsed_sim_s=(rospy.Time.now().to_sec()-self.start_ros if self.start_ros else None),wall_s=time.monotonic()-self.start_wall,start_rejections=self.start_rejections,
-              contact=self.latest.get('contact',{}),source_run=os.environ.get('SIM_RUN_DIR'))
+              contact=self.latest.get('contact',{}),final_truth_xyz=self.truth,source_run=os.environ.get('SIM_RUN_DIR'))
             if result['status']=='PASS' and not all(checks.values()):result['status']='INCOMPLETE'
             (self.out/'gate_status.json').write_text(json.dumps(result,indent=2))
             (Path(os.environ['SIM_RUN_DIR'])/'gate_status.json').write_text(json.dumps(result,indent=2))
@@ -67,6 +77,7 @@ class Gate:
             return result
     def shutdown(self):
         if not self.done:self.save('launch_interrupted')
+        with self.lock:self.truth_file.close()
     def run(self):
         while not rospy.is_shutdown():
             time.sleep(.2);now=rospy.Time.now().to_sec();wall=time.monotonic()
