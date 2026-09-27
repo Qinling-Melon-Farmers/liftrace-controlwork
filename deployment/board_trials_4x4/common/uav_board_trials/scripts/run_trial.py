@@ -8,7 +8,7 @@ from geometry_msgs.msg import PoseStamped
 from sensor_msgs.msg import CameraInfo,Image
 from mavros_msgs.msg import State,ExtendedState
 from std_msgs.msg import String
-from trial_config import generate,validate_settings,TRIAL_FOLDERS,NO_DROP_MODES
+from trial_config import generate,validate_settings,TRIAL_FOLDERS,NO_DROP_MODES,mapping_profile
 
 def main():
     p=argparse.ArgumentParser();p.add_argument('trial',choices=sorted(TRIAL_FOLDERS));p.add_argument('mode',choices=['preview','flight']);p.add_argument('--root',type=Path,required=True);p.add_argument('--model',type=Path);p.add_argument('--check-config',action='store_true');p.add_argument('--real-release',action='store_true');a=p.parse_args()
@@ -58,7 +58,7 @@ def main():
     def interrupted(*unused):raise KeyboardInterrupt()
     signal.signal(signal.SIGINT,interrupted);signal.signal(signal.SIGTERM,interrupted)
     try:
-        local=launch('localization',['alignment_mode:='+settings.get('alignment_mode','measured'),'enable_control_output:='+str(a.mode=='flight').lower(),'body_to_imu_xyz:='+' '.join(map(str,rig['body_to_imu_xyz'])),'imu_to_camera_z:='+str(rig['imu_to_camera_xyz'][2]),'camera_quat_xyzw:='+' '.join(map(str,rig['camera_quat_xyzw']))])
+        local=launch('localization',['mapping_profile:='+mapping_profile(settings),'alignment_mode:='+settings.get('alignment_mode','measured'),'enable_control_output:='+str(a.mode=='flight').lower(),'body_to_imu_xyz:='+' '.join(map(str,rig['body_to_imu_xyz'])),'imu_to_camera_z:='+str(rig['imu_to_camera_xyz'][2]),'camera_quat_xyzw:='+' '.join(map(str,rig['camera_quat_xyzw']))])
         until=time.monotonic()+90;reference=None;last_wait_log=0.
         while time.monotonic()<until:
             if local.poll() is not None:raise RuntimeError('Localization launch exited; inspect localization.log')

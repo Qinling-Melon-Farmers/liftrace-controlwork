@@ -1,7 +1,7 @@
 from pathlib import Path
 import sys,json,tempfile
 import yaml,roslaunch,rospkg
-from trial_config import generate,TRIAL_FOLDERS,HIGH_MODES,H_MODES,NO_DROP_MODES
+from trial_config import generate,TRIAL_FOLDERS,HIGH_MODES,H_MODES,NO_DROP_MODES,mapping_profile
 from trial_manager import BoardManager
 from unittest.mock import patch
 R=Path(__file__).resolve().parents[5];P=R/'deployment/board_trials_4x4/common/uav_board_trials'
@@ -23,7 +23,7 @@ for folder in TRIAL_FOLDERS.values():
             assert values['/fast_planner_node/search/max_vel']==s['cruise_speed']
             assert values['/fast_planner_node/manager/max_acc']==s['cruise_acceleration']==0.35
             assert values['/fast_planner_node/sdf_map/virtual_ceil_height']==-.1
-            assert [values['/fast_planner_node/sdf_map/'+key] for key in ('obstacles_inflation','obstacles_inflation_up','obstacles_inflation_down')]==[.275,.2,.1]
+            assert [values['/fast_planner_node/sdf_map/'+key] for key in ('obstacles_inflation','obstacles_inflation_up','obstacles_inflation_down')]==[.25,.2,.1]
             assert values['/fast_planner_node/sdf_map/horizontal_avoidance/enabled']==(s['mode'] in HIGH_MODES)
             assert values['/fast_planner_node/sdf_map/horizontal_avoidance/column_middle_enabled']
             assert values['/fast_planner_node/sdf_map/horizontal_avoidance/column_band_low_ratio']==.4
@@ -65,9 +65,24 @@ for folder in TRIAL_FOLDERS.values():
             with patch('rospy.get_param',side_effect=get_param):actual=manager._new_runtime()
             rows.append(dict(folder=folder,trial=s['mode'],control_output=enabled,nodes=len(nodes),runtime=type(actual).__name__,passed=True))
         for enabled in ('false','true'):
-            cfg=roslaunch.config.load_config_default([(str(P/'launch/localization.launch'),[f'enable_control_output:={enabled}',"alignment_mode:="+s.get('alignment_mode','measured')])],11311,verbose=False)
+            cfg=roslaunch.config.load_config_default([(str(P/'launch/localization.launch'),[f'enable_control_output:={enabled}',"alignment_mode:="+s.get('alignment_mode','measured'),'mapping_profile:='+mapping_profile(s)])],11311,verbose=False)
             alignment=[n for n in cfg.nodes if n.name=='map_camera_alignment']
             assert len(alignment)==1
             assert alignment[0].type==('static_transform_publisher' if s.get('alignment_mode')=='legacy_static' else 'map_camera_alignment.py')
             params={k:v.value for k,v in cfg.params.items()};assert params['/navigation_frame_adapter/mission_frame']=='camera_init';assert params['/navigation_frame_adapter/local_frame']=='map';assert params['/navigation_frame_adapter/enable_setpoints']==(enabled=='true')
+            assert params['/feature_extract_enable'] is True
+            assert params['/cube_side_length']==20.0 and params['/mapping/det_range']==6.0
+            # FAST-LIO must not relocate its cube while stationary at its center.
+            assert params['/cube_side_length']/2 > 1.5*params['/mapping/det_range']
+            assert params['/freedom/map/voxel_depth']==2
+            assert params['/freedom/map/sub_voxel_size']==.1
+            assert params['/freedom/map/counts_to_free']==6 and params['/freedom/map/counts_to_revert']==20
+            name=mapping_profile(s);distance,top={'low':(6.,2.),'high':(6.,3.2),'corridor':(5.,1.5)}[name]
+            for prefix in ('/freedom/sensor/','/freedom/map/raycast_'):
+                assert params[prefix+'max_range']==distance
+                assert params[prefix+'min_z']==-1.0 and params[prefix+'max_z']==top
+            # Loading resource profiles must preserve real sensor type and extrinsics.
+            assert params['/preprocess/lidar_type']==1
+            assert params['/mapping/extrinsic_T']==[-.011,-.02329,.04412]
+
 (R/'deployment/board_trials_4x4/validation_static.json').write_text(json.dumps(rows,indent=2));print(json.dumps(rows,indent=2))

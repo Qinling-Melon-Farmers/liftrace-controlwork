@@ -1,5 +1,7 @@
 # 2026无人机竞赛整机工程
 
+> 2026-09-27当前：[导航仓板端参考分支与八组交接](docs/deployment/board_reference_20260927/README.md)。现场FAST-LIO/FreeDOM负载档案已继承，水平膨胀0.25m；新配置完成离线验证与构建，不覆盖此前动态验收结论。
+
 > 本分支为 `feat/board-deployment-flight-20260920`，专门用于板端部署与试飞。[部署总览](deployment/BOARD_DEPLOYMENT.md) · [八组专项](deployment/board_trials_4x4/MODULES.md) · [现场旧4×4参考镜像](deployment/onboard_obstacle_reference_20260920/README.md)。下方仿真记录保留来源历史，不代表本分支已实飞验收。
 
 > 2026-09-27：[远端板载代码与八组专项对比](docs/deployment/board_remote_comparison_20260927/REPORT.md)。远端仍为48541a7；TF/相机/槽位已保留，定位建图参数和消息版本仍有差异；两个远端投递入口存在默认降落高度顺序冲突。本次仅文档核查。

@@ -1,8 +1,8 @@
 # 板端部署与试飞分支
 
-2026-09-27复核：[远端“板载代码”与八组详细差异](../docs/deployment/board_remote_comparison_20260927/REPORT.md)。已保留现场TF/相机/槽位；FAST-LIO与FreeDOM参数尚未完全相同，不能把两套入口混用。
+2026-09-27当前：[导航仓“板端参考分支”交接说明](../docs/deployment/board_reference_20260927/README.md)。八组已对齐现场负载/建图档案，膨胀25/20/10cm；新配置只做离线验证与构建，未实跑。
 
-**2026-09-27当前入口为[八组模块](board_trials_4x4/MODULES.md)：已完成同链SITL及全程录像；6组完整通过，走廊相关2组保留接触结果。没有更新实机或试飞组的“板载代码”分支。膨胀统一27.5/20/10cm，静态TF与顶棚关闭继续继承。[报告](../docs/verification/board_modules_20260927/REPORT.md)**
+**2026-09-27改参前的入口验收为[八组模块](board_trials_4x4/MODULES.md)：已完成同链SITL及全程录像；6组完整通过，走廊相关2组保留接触结果。没有更新实机或试飞组的“板载代码”分支。该历史轮膨胀27.5/20/10cm，静态TF与顶棚关闭继续继承。[报告](../docs/verification/board_modules_20260927/REPORT.md)**
 
 2026-09-26候选更新：四套继承试飞组fa621262相机/槽位与参数化恢复；统一25/20/10cm膨胀，高位使用中部柱。已本机构建，未上传实机。[差异与操作边界](../docs/planning/obstacle_board_alignment_20260926/REPORT.md)。
 

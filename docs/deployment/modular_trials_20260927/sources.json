@@ -56,5 +56,6 @@
       "patrol_uav_ws-patrol_planner/src/patrol_control/test/test_near_wall_align.cpp"
     ],
     "snapshot": "legacy_baseline/20260927_board_modules"
-  }
+  },
+  "board_resource_alignment": "../board_reference_20260927/sources.json"
 }
