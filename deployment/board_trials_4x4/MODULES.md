@@ -1,5 +1,7 @@
 # 八组板端专项与同链仿真（2026-09-27）
 
+2026-09-27复核：[远端“板载代码”与八组详细差异](../../docs/deployment/board_remote_comparison_20260927/REPORT.md)。已保留现场TF/相机/槽位；FAST-LIO与FreeDOM参数尚未完全相同，不能把两套入口混用。
+
 本次在 `feat/board-deployment-flight-20260920` 继续维护，原四组也同步更新。保留现场静态 TF、关闭虚拟顶棚、自动地面参考、已知相机外参和投递槽偏移。仿真结果见[八组验收报告](../../docs/verification/board_modules_20260927/REPORT.md)；配置能展开、单元测试通过不等于实飞通过。
 
 | 目录 | 测试流程 | 结束条件 |
