@@ -121,5 +121,5 @@ class Recorder:
             for writer in self.writers:writer.release()
             for f in (self.events,self.csvfile,self.posefile):
                 if not f.closed:f.close()
-            (self.out/'recording.json').write_text(json.dumps(dict(frames=self.frames,fps=self.fps,yolo_matched_frames=self.matched,boxed_frame_tolerance_s=.03,images_buffered_max=16,width=self.width,clock='hardware ROS time; see camera_frames.csv'),indent=2))
+            (self.out/'recording.json').write_text(json.dumps(dict(frames=self.frames,fps=self.fps,yolo_matched_frames=self.matched,boxed_frame_tolerance_s=.03,images_buffered_max=16,width=self.width,clock=('ROS simulated time' if rospy.get_param('/use_sim_time',False) else 'ROS wall time')+'; see camera_frames.csv'),indent=2))
 if __name__=='__main__':rospy.init_node('trial_recorder');Recorder();rospy.spin()

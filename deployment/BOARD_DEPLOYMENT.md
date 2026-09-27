@@ -1,5 +1,7 @@
 # 板端部署与试飞分支
 
+**2026-09-27当前入口为[八组模块](board_trials_4x4/MODULES.md)：已完成同链SITL及全程录像；6组完整通过，走廊相关2组保留接触结果。没有更新实机或试飞组的“板载代码”分支。膨胀统一27.5/20/10cm，静态TF与顶棚关闭继续继承。[报告](../docs/verification/board_modules_20260927/REPORT.md)**
+
 2026-09-26候选更新：四套继承试飞组fa621262相机/槽位与参数化恢复；统一25/20/10cm膨胀，高位使用中部柱。已本机构建，未上传实机。[差异与操作边界](../docs/planning/obstacle_board_alignment_20260926/REPORT.md)。
 
 分支：`feat/board-deployment-flight-20260920`。以当前板端专项成果为基础，专门保存部署入口、现场修复、试飞配置及结果摘要；不合入main、不替换正赛基线。
@@ -13,7 +15,9 @@
 | [H降落](board_trials_4x4/03_h_landing/README.md) | 前方约2m H，接近、定点升高、对齐 | H上降落 |
 | [走廊＋H](board_trials_4x4/04_corridor_landing/README.md) | 按实测点自主避障，末端H对齐 | H上降落；航点/H留空时拒绝运行 |
 
-四套统一默认：`alignment_mode=legacy_static`、`virtual_ceiling_enabled=false`、巡航上限0.5m/s。单位静态TF采用现场旧板端口径；已知相机/IMU外参和双向数值适配保留。不要同时启动实测对齐与单位静态TF。静态TF不证明两套估计器绝无误差。
+新增入口：[低位连续多投](board_trials_4x4/05_low_multi/README.md)、[高位提前中断](board_trials_4x4/06_high_priority/README.md)、[只记忆不投递](board_trials_4x4/07_memory_only/README.md)、[三投接走廊/H](board_trials_4x4/08_full_mission/README.md)。
+
+八组统一默认：`alignment_mode=legacy_static`、`virtual_ceiling_enabled=false`、巡航上限0.5m/s。单位静态TF采用现场旧板端口径；已知相机/IMU外参和双向数值适配保留。不要同时启动实测对齐与单位静态TF。静态TF不证明两套估计器绝无误差。
 
 共同修复：自动地面基准；float/double高度比较一致；READY同时要求视觉与控制设定点；只有经历已解锁IN_AIR后落地上锁才自动收尾；高位转低位也不重新开启顶棚；模拟投递服务独立隔离。目标高度、控制Z限幅与水平障碍柱仍有效。
 

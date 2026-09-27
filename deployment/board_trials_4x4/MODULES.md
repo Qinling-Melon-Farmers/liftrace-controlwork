@@ -1,6 +1,6 @@
 # 八组板端专项与同链仿真（2026-09-27）
 
-本次在 `feat/board-deployment-flight-20260920` 继续维护，原四组也同步更新。保留现场静态 TF、关闭虚拟顶棚、自动地面参考、已知相机外参和投递槽偏移。仿真结果见后续验收报告；配置能展开、单元测试通过不等于实飞通过。
+本次在 `feat/board-deployment-flight-20260920` 继续维护，原四组也同步更新。保留现场静态 TF、关闭虚拟顶棚、自动地面参考、已知相机外参和投递槽偏移。仿真结果见[八组验收报告](../../docs/verification/board_modules_20260927/REPORT.md)；配置能展开、单元测试通过不等于实飞通过。
 
 | 目录 | 测试流程 | 结束条件 |
 | --- | --- | --- |
@@ -13,7 +13,7 @@
 | 07_memory_only | 完整高位环线，只记录目标，规划下降 | 无投递指令，完成记忆后原地降落 |
 | 08_full_mission | 高位搜索、低空重访三投、走廊、H | 完整任务；走廊引导点和 H 坐标必须实测填写 |
 
-共同默认：4×4m 工作区；固定起飞坐标系 +X 向前、+Y 向左；巡航 0.5m/s、加速度 0.35m/s²；低位飞控中心离地 1.4m，高位 2.6m，投递高度由 `drop_agl` 单独配置。地面静置时采样飞控位置，利用已知起落架高度建立地面零点，不把 local Z=0 当成相机到地距离。
+共同默认：4×4m 工作区；固定起飞坐标系 +X 向前、+Y 向左；巡航 0.5m/s、加速度 0.35m/s²；低位飞控中心离地 1.4m，高位 2.6m，投递高度由 `drop_agl` 单独配置。03低位接近使用1.0m，H识别升至1.8m；04/08走廊高度按各实测航点配置，本次仿真夹具为1.0m，04的H前transit默认仍1.4m。地面静置时采样飞控位置，利用已知起落架高度建立地面零点，不把 local Z=0 当成相机到地距离。
 
 ## 继承了哪些板端成果
 
@@ -63,3 +63,18 @@ visual_interrupt /实际路径/best.pt
 ```
 
 `SIM_NO_RECORD=1` 仅关闭宿主屏幕录制；每组 Gazebo 俯视、相机原始、视觉叠加三路录像始终启动，保存在该 run 的 `generated/`。其他 trial 名称为表格目录去掉数字后的对应注册名：`high_view`、`landing`、`corridor_landing`、`low_multi`、`high_priority`、`memory_only`、`full_mission`。
+
+## 本次验收与导出
+
+八组均实际运行并录制；01/02/03/05/06/07完整通过，04和08在走廊门边记录55cm包络接触后停机，08此前完成3投。按用户意见不继续走廊专项修复，不把现场成功记录替代本次仿真结果。详见[报告与时间表](../../docs/verification/board_modules_20260927/REPORT.md)和[回放入口](../../docs/verification/board_modules_20260927/index.html)。
+
+每组有原相机、视觉叠加、Gazebo俯视三份录制，以及根据记录生成的同屏航迹/高度回放。后者明确标注重建，不冒充Gazebo新录像；地图上红色十字为仿真场景真值，仅用于事后显示，绿色/黄色为新鲜视觉投影/粗线索。
+
+工程根目录、rl_drone环境下：
+
+```bash
+python deployment/board_trials_4x4/common/uav_board_trials/scripts/report_simulation.py --finish-videos --dashboard
+python deployment/board_trials_4x4/common/uav_board_trials/scripts/render_trial_replay.py <run目录>/generated
+```
+
+大视频保留在logs，不进入Git；index.html相对链接依赖同一工程下对应run目录。仅克隆源码不会同时得到视频，分享时需连同相应generated目录交付。
