@@ -1,5 +1,7 @@
 # 板端部署与试飞分支
 
+2026-09-27晚：试飞组`high_view_priority_search.launch`实飞bag的[复盘与panzer/H优化计划](../docs/deployment/flight_review_20260927/REPORT.md)。该轮是高位航点中断链，未运行本八组的先建队列再重访策略。
+
 2026-09-27当前：[导航仓“板端参考分支”交接说明](../docs/deployment/board_reference_20260927/README.md)。八组已对齐现场负载/建图档案，膨胀25/20/10cm；新配置只做离线验证与构建，未实跑。
 
 **2026-09-27改参前的入口验收为[八组模块](board_trials_4x4/MODULES.md)：已完成同链SITL及全程录像；6组完整通过，走廊相关2组保留接触结果。没有更新实机或试飞组的“板载代码”分支。该历史轮膨胀27.5/20/10cm，静态TF与顶棚关闭继续继承。[报告](../docs/verification/board_modules_20260927/REPORT.md)**

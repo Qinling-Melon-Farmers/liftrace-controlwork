@@ -1,5 +1,7 @@
 # 八组板端专项与同链仿真（2026-09-27）
 
+2026-09-27晚：试飞组`high_view_priority_search.launch`实飞bag的[复盘与panzer/H优化计划](../../docs/deployment/flight_review_20260927/REPORT.md)。该轮是高位航点中断链，未运行本八组的先建队列再重访策略。
+
 2026-09-27后续：[板端参考分支与最新负载/建图档案](../../docs/deployment/board_reference_20260927/README.md)。八组已继承现场FAST-LIO/FreeDOM配置，水平膨胀0.25m；本次改参后只做离线检查与构建，尚未重跑。下文6PASS/2INCOMPLETE是此前0.275m版本。
 
 本次在 `feat/board-deployment-flight-20260920` 继续维护，原四组也同步更新。保留现场静态 TF、关闭虚拟顶棚、自动地面参考、已知相机外参和投递槽偏移。仿真结果见[八组验收报告](../../docs/verification/board_modules_20260927/REPORT.md)；配置能展开、单元测试通过不等于实飞通过。
