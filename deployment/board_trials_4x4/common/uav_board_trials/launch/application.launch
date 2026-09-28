@@ -1,5 +1,7 @@
 <?xml version='1.0' encoding='utf-8'?>
 <launch>
+  <arg name="terminal_hover_enabled" default="false" />
+  <arg name="max_command_z" default="$(eval float(arg('ground_z'))+2.9)" />
   <arg name="simulation" default="false" />
   <arg name="enable_control_output" default="false" />
   <arg name="cruise_speed" default="0.5" />
@@ -43,7 +45,7 @@
     <remap from="/Servo" to="/board_trials/Servo" />
     <remap from="/mavros/local_position/pose" to="/navigation/local_pose" />
     <remap from="/mavros/local_position/odom" to="/navigation/local_odom" />
-    <remap from="/mavros/setpoint_position/local" to="/navigation/setpoint_mission" />
+    <remap from="/mavros/setpoint_position/local" to="$(eval '/board_trials/controller_setpoint' if arg('terminal_hover_enabled') else '/navigation/setpoint_mission')" />
     <include file="$(find patrol_control)/launch/patrol_control_px4_sim.launch" if="$(arg enable_control_output)">
       <arg name="rviz" value="false" />
       <arg name="waypoint_mode" value="false" />
@@ -56,7 +58,7 @@
       <arg name="planner_obstacles_inflation" value="0.25" />
       <arg name="planner_clearance_threshold" value="0.025" />
       <arg name="px4_max_distance" value="0.25" />
-      <arg name="external_planner_max_command_z" value="$(eval float(arg('ground_z'))+2.9)" />
+      <arg name="external_planner_max_command_z" value="$(arg max_command_z)" />
     </include>
     <include file="$(find plan_manage)/launch/patrol_planner_px4_sim.launch" unless="$(arg enable_control_output)">
       <arg name="max_vel" value="$(arg cruise_speed)" />
@@ -97,8 +99,11 @@
     <arg name="pose_topic" value="/navigation/local_pose" />
     <arg name="public_service_name" value="/board_trials/Servo" />
   </include>
-  <node pkg="uav_board_trials" type="trial_auto_land.py" name="trial_auto_land" output="screen" required="true" if="$(eval arg('enable_control_output') and arg('mode') not in ['landing','high_view_full'])">
+  <node pkg="uav_board_trials" type="trial_auto_land.py" name="trial_auto_land" output="screen" required="true" if="$(eval arg('enable_control_output') and not arg('terminal_hover_enabled') and arg('mode') not in ['landing','high_view_full'])">
     <rosparam file="$(arg generated_dir)/auto_land.yaml" />
+  </node>
+  <node pkg="uav_board_trials" type="trial_terminal_hover.py" name="trial_terminal_hover" required="true" output="screen" if="$(eval arg('enable_control_output') and arg('terminal_hover_enabled'))">
+    <rosparam file="$(arg generated_dir)/terminal_hover.yaml" />
   </node>
   <rosparam file="$(arg generated_dir)/overrides.yaml" />
   <node pkg="uav_board_trials" type="trial_recorder.py" name="trial_recorder" output="screen">

@@ -1,4 +1,3 @@
-# Site route approved: +X forward 6m, Y +/-1.5m. Heights remain inherited AGL.
 flight_area:
   center_bounds:
   - -0.35
@@ -53,3 +52,7 @@ search_line_x:
 - 5.4
 - 6.0
 compressed_image_topic: /camera/image_raw/compressed
+high_agl: 2.0
+max_agl: 2.0
+terminal_hover_agl: 0.3
+auto_start_after_arm: true

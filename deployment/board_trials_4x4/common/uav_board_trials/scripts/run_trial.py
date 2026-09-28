@@ -17,7 +17,7 @@ def main():
     base=a.root/'deployment/board_trials_4x4';settings=yaml.safe_load((base/folder/'settings.yaml').read_text());rig=yaml.safe_load((base/'common/uav_board_trials/config/known_rig.yaml').read_text())
     if a.site_config:
         profile=yaml.safe_load(a.site_config.read_text()) or {}
-        allowed={'flight_area','search_line_x','compressed_image_topic'}
+        allowed={'flight_area','search_line_x','compressed_image_topic','high_agl','max_agl','terminal_hover_agl','auto_start_after_arm'}
         if not isinstance(profile,dict) or set(profile)-allowed:p.error('Unsupported site profile key')
         settings.update(profile)
     if settings.get('actuator_mode','mock')!='mock':p.error('settings must default to mock; use --real-release explicitly')
@@ -110,6 +110,7 @@ def main():
             rospy.wait_for_service(settings['raw_servo_service'],timeout=10.)
             import rosservice
             if rosservice.get_service_type(settings['raw_servo_service'])!='patrol_control/Servo':raise RuntimeError('Unexpected hardware Servo service type')
+        args+=['terminal_hover_enabled:='+str('terminal_hover_agl' in settings).lower(),'max_command_z:='+str(reference['ground_z']+settings.get('max_agl',2.9))]
         app=launch('application',args)
         detections_seen=[False];control_rx=[-1e9]
         control_ready_sub=rospy.Subscriber('/navigation/setpoint_mission',PoseStamped,lambda msg:control_rx.__setitem__(0,time.monotonic()),queue_size=1)
@@ -122,18 +123,54 @@ def main():
         if not detections_seen[0]:raise RuntimeError('RKNN output did not become ready; inspect application.log')
         if a.mode=='flight' and time.monotonic()-control_rx[0]>=.5:raise RuntimeError('Controller setpoints did not become live; inspect patrol_control startup errors')
         print('READY:',out,flush=True)
+        if a.mode=='flight' and settings.get('auto_start_after_arm',False):print('AUTO_SEQUENCE: manual arm -> OFFBOARD -> low hover -> mission. Never auto-arms.',flush=True)
         print('Ground/reference and all local-Z limits generated automatically. No arming or mission start was sent.',flush=True)
-        if a.mode=='flight':print('After local inspection, operator chooses flight mode/arming and calls: rosservice call /navigation/start_mission "{}"',flush=True)
+        if a.mode=='flight' and not settings.get('auto_start_after_arm',False):print('After local inspection, operator chooses flight mode/arming and calls: rosservice call /navigation/start_mission "{}"',flush=True)
         mission_rx=[{}]
         def mission_status(msg):
             try:mission_rx[0]=json.loads(msg.data)
             except (ValueError,TypeError):pass
         mission_sub=rospy.Subscriber('/navigation/mission_status',String,mission_status,queue_size=1)
         on_ground_since=None;last_status_log=0.
+        auto_enabled=a.mode=='flight' and settings.get('auto_start_after_arm',False)
+        arm_attempted=False;start_attempted=False;auto_cancelled=False;offboard_seen=False;hover_since=None
         while not rospy.is_shutdown():
             if any(c.poll() is not None for c in children):raise RuntimeError('A launch exited; inspect logs')
             bag.check()
             s=state[0];e=extended[0]
+            if auto_enabled and s is not None and s.connected and s.armed and not auto_cancelled:
+                if offboard_seen and s.mode!='OFFBOARD':
+                    auto_cancelled=True
+                    print('AUTO_SEQUENCE_CANCELLED_PILOT_MODE_CHANGE',flush=True)
+                elif not arm_attempted:
+                    arm_attempted=True
+                    from mavros_msgs.srv import SetMode
+                    try:
+                        if s.mode!='OFFBOARD':
+                            response=rospy.ServiceProxy('/mavros/set_mode',SetMode)(base_mode=0,custom_mode='OFFBOARD')
+                            if not response.mode_sent:auto_cancelled=True
+                        print('ARMED_AUTO_OFFBOARD_REQUEST cancelled=',auto_cancelled,flush=True)
+                    except rospy.ServiceException as error:
+                        auto_cancelled=True;print('AUTO_OFFBOARD_FAILED',str(error),flush=True)
+                elif s.mode=='OFFBOARD':
+                    offboard_seen=True
+                    with lock:
+                        now=rospy.Time.now().to_sec()
+                        recent=[v for v in samples if 0<=now-v[4]<=1.]
+                    ready=(len(recent)>=10 and now-recent[-1][4]<.3
+                           and abs(recent[-1][2]-reference['low_z'])<.15
+                           and np.max(np.ptp(np.array(recent)[:,:3],axis=0))<.12)
+                    if ready:
+                        hover_since=hover_since or time.monotonic()
+                    else:hover_since=None
+                    if not start_attempted and hover_since is not None and time.monotonic()-hover_since>=1.:
+                        start_attempted=True
+                        from std_srvs.srv import Trigger
+                        try:
+                            response=rospy.ServiceProxy('/navigation/start_mission',Trigger)()
+                            print('AUTO_MISSION_START',response.success,response.message,flush=True)
+                        except rospy.ServiceException as error:
+                            print('AUTO_MISSION_START_FAILED_NO_RETRY',str(error),flush=True)
             if time.monotonic()-last_status_log>=5.:
                 last_status_log=time.monotonic();status=mission_rx[0]
                 print('FLIGHT_STATUS',dict(mode=s.mode if s else None,armed=s.armed if s else None,
