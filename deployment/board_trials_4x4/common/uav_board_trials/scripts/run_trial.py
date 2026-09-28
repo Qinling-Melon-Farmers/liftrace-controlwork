@@ -119,7 +119,8 @@ def main():
         while not (detections_seen[0] and (a.mode=='preview' or time.monotonic()-control_rx[0]<.5)) and time.monotonic()<ready_until:
             if any(child.poll() is not None for child in children):raise RuntimeError('Application failed before model readiness')
             time.sleep(.1)
-        model_ready_sub.unregister();control_ready_sub.unregister()
+        # Keep readiness subscriptions alive: unregister may block long enough
+        # to make the already-live control timestamp stale before its check.
         if not detections_seen[0]:raise RuntimeError('RKNN output did not become ready; inspect application.log')
         if a.mode=='flight' and time.monotonic()-control_rx[0]>=.5:raise RuntimeError('Controller setpoints did not become live; inspect patrol_control startup errors')
         print('READY:',out,flush=True)
