@@ -54,3 +54,4 @@ high_agl: 2.0
 max_agl: 2.0
 terminal_hover_agl: 0.3
 auto_start_after_arm: true
+initialization_timeout: 300.0

@@ -66,6 +66,7 @@ def validate_settings(settings):
 
     if settings.get('alignment_mode','measured') not in ('measured','legacy_static'):
         raise ValueError('Unknown alignment_mode')
+    if not 30<=float(settings.get('initialization_timeout',90))<=300:raise ValueError('invalid initialization timeout')
     if type(settings.get('auto_start_after_arm',False)) is not bool:raise ValueError('invalid auto start')
     max_agl=settings.get('max_agl',2.9)
     if not isinstance(max_agl,(int,float)) or not math.isfinite(max_agl) or not 2.<=max_agl<=3.:raise ValueError('invalid max_agl')
