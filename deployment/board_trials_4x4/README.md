@@ -130,3 +130,8 @@ known_rig继承的12cm表仅为试飞组已有camera_init XY目标偏移，尚�
 八组共享 `flight_5cls_20260928_fp16.rknn` 与 `vision_ws/src/uav_vision/config/flight_5cls_20260928_metadata.yaml`。默认模型名已更新，可用 `--model <路径> --metadata <匹配YAML>` 显式选择。仅换模型不要沿用六类表：red_cross现在是输出ID4；内部ROS消息仍使用类别名，任务/槽位接口不变。旧模型回退必须两个参数一起指定。
 
 模型包单独交付；仓库只含配置、适配、工具与报告。默认模拟投递、显式实投入口、现场接线、静态TF、关闭虚拟顶棚、25/20/10cm膨胀保持原值。新增六组检查排除走廊两组；本次结果见 `docs/verification/model_five_class_20260928/REPORT.md`，不能沿用9月27日旧参数下“6组通过”的结论。板端NPU/实投仍需现场验收。
+
+
+### 2026-09-29：冲突线索与重访
+
+高位整圈完成后，持续得到多帧支持的位置可进入重访清单，即使还有弱竞争假设。清单数量不是confirmed数量；低位必须重新确认、对准并取得释放许可。先访问有支持的位置，后续备选仅在原预算内复核清单剩余类别，不新增整场补搜。高位提前中断仍要求原无冲突证据，memory_only仍不投递。详见[修复及回放验证](../../docs/verification/supported_revisit_20260929/REPORT.md)。

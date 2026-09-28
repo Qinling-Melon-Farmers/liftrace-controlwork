@@ -86,6 +86,8 @@ class FullCircleRuntime(LocalLandingMixin,HighViewFull):
         remaining=set(self.trial_manifest or {})-self.core.queue.delivered_classes
         if not remaining:
             return self.end_here(now,'board_memorized_targets_complete' if self.core.committed_slots else 'board_no_valid_target_recorded')
+        check=self._next_conflict_location(now,allowed_classes=remaining)
+        if check is not None:return check
         # Do not add a new lawnmower search when a memorized target cannot be completed.
         return self._finish(False,'board_memorized_target_incomplete:'+reason,now)
     def probe_status(self):
@@ -118,7 +120,7 @@ class PriorityRevisitRuntime(FullCircleRuntime):
     def _start_fallback(self,now,reason):
         remaining=set(self.trial_manifest or {})-self.core.queue.delivered_classes
         if remaining:
-            check=self._next_conflict_location(now)
+            check=self._next_conflict_location(now,allowed_classes=remaining)
             if check is not None:return check
             local=self._local_wall_recheck(now)
             if local is not None:return local

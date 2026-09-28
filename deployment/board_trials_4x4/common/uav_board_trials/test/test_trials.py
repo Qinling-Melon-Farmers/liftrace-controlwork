@@ -31,6 +31,40 @@ class TrialTests(unittest.TestCase):
             r.ingest([replace(candidate(target_id=i,class_name=c,now=t,x=((1.,-1.),(3.,-1.),(2.,1.))[i][0],y=((1.,-1.),(3.,-1.),(2.,1.))[i][1]),first_seen_ns=99_000_000_000) for i,c in enumerate(('bridge','panzer','red_cross'))],t)
         self.assertEqual(len(r._all_top(101.6)),3)
         seq=r.core.active_action.decision_seq;r.tick(101.7,(0.,0.));self.assertEqual(r.core.active_action.decision_seq,seq);self.assertEqual(r.stage,'SURVEY')
+    def test_full_circle_freezes_supported_conflicted_locations(self):
+        from uav_high_view.core import Hint,Key
+        r=FullCircleRuntime(MissionCore(profile(),config()),ProbeConfig(-.22,((1.,0.),)))
+        r.start('m',100.,(0.,0.));epoch=r.catalog.epoch
+        for t in (101.,101.2,101.4):
+            r.memory.update([Hint(epoch,Key(i,1,'bbox'),cls,(float(i),1.),.2,
+                                  int(round(t*1e9)),1.,1)
+                             for i,cls in enumerate(('bridge','panzer','red_cross'))],
+                            epoch,int(round(t*1e9)))
+        r.memory.update([Hint(epoch,Key(9,1,'bbox'),'panzer',(3.,3.),.2,
+                              102000000000,1.,1)],epoch,102000000000)
+        r.route.interrupt(r.core.active_action.decision_seq);r.core.active_action=None
+        r.ascent_verified=True;r.policy=replace(r.policy,direct_descent=False)
+        out=r._retreat(103.)
+        self.assertEqual(set(r.trial_manifest),{'bridge','panzer','red_cross'})
+        self.assertEqual(r.trial_manifest['panzer'].xy,(1.,1.))
+        self.assertNotIn('panzer',r._interrupt_top(103.))
+        self.assertEqual(out.action.command,'SEARCH');self.assertFalse(out.action.has_target)
+        self.assertEqual(r.core.committed_slots,0)
+
+    def test_full_circle_fallback_only_rechecks_remaining_manifest_classes(self):
+        from uav_high_view.core import Hint,Key
+        r=FullCircleRuntime(MissionCore(profile(),config()),ProbeConfig(-.22,((1.,0.),)))
+        r.start('m',100.,(0.,0.));epoch=r.catalog.epoch
+        r.memory.update([Hint(epoch,Key(i,1,'bbox'),cls,xy,.2,101000000000,1.,1)
+                         for i,(cls,xy) in enumerate((('panzer',(2.,0.)),('panzer',(3.,0.)),
+                                                     ('bridge',(.1,0.)),('bridge',(.2,.8))))],epoch,101000000000)
+        r.route.interrupt(r.core.active_action.decision_seq);r.core.active_action=None
+        r.trial_manifest={'panzer':object()};r._current_xy=(0.,0.)
+        out=r._start_fallback(102.,'known_hints_exhausted')
+        self.assertEqual(r.selected.class_name,'panzer')
+        self.assertEqual(out.action.command,'SEARCH');self.assertFalse(out.action.has_target)
+        self.assertIsNone(r.fallback_started)
+
     def test_one_two_three_memories_finish_at_last_target_without_fake_slots(self):
         for n in (1,2,3):
             r=FullCircleRuntime(MissionCore(profile(),config()),ProbeConfig(-.22,((1.,0.),)))
