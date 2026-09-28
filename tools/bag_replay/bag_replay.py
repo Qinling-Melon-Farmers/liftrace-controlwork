@@ -228,7 +228,14 @@ def render(a):
                 mode=(lines['mode'].msg(t,1) or {}).get('data','?');fc=lines['fc'].msg(t,2) or {};release=lines['release'].msg(t) or {};ev=lines['evidence'].msg(t,1) or {};permit=lines['permission'].msg(t,1) or {}
                 coord=[]
                 live={f"{q['class_name']}#{q['id']}" for q in (target_row['m']['targets'] if target_row and t-target_row['t']<=.5 else []) if q['map_valid']}
-                for ident,r in list(history.items())[:3]:
+                # Keep the three most recently visible semantic targets on screen.
+                # Auxiliary circle IDs must not displace the bridge at a third drop.
+                coordinate_rows = sorted(
+                    ((ident, row) for ident, row in history.items()
+                     if row['m']['class_name'] != 'circle'),
+                    key=lambda item: (item[0] in live, item[1]['t']),
+                    reverse=True)
+                for ident,r in coordinate_rows[:3]:
                     q=r['m'];p=q['map_point'];coord.append(f"{ident}: ({p['x']:.3f},{p['y']:.3f},{p['z']:.3f}) [{q['map_frame']}] {'CURRENT' if ident in live else 'HISTORY'} age={t-r['t']:.1f}s")
                 mapped=[q for (key,_),r in matched if key=='mapped' for q in r['m']['detections'] if q['class_name']!='circle']
                 map_text='; '.join(q['class_name']+': '+('valid' if q['map_valid'] else q['reject_reason']) for q in mapped) or 'no matched map result'
