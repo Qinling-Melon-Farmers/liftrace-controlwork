@@ -5,15 +5,21 @@ from pathlib import Path
 from collections import deque
 import numpy as np,yaml,rospy,rosnode,tf2_ros
 from geometry_msgs.msg import PoseStamped
-from sensor_msgs.msg import CameraInfo,Image
+from sensor_msgs.msg import CameraInfo,Image,CompressedImage
 from mavros_msgs.msg import State,ExtendedState
 from std_msgs.msg import String
 from trial_config import generate,validate_settings,TRIAL_FOLDERS,NO_DROP_MODES,mapping_profile
+from trial_bag import TrialBag
 
 def main():
-    p=argparse.ArgumentParser();p.add_argument('trial',choices=sorted(TRIAL_FOLDERS));p.add_argument('mode',choices=['preview','flight']);p.add_argument('--root',type=Path,required=True);p.add_argument('--model',type=Path);p.add_argument('--metadata',type=Path);p.add_argument('--check-config',action='store_true');p.add_argument('--real-release',action='store_true');a=p.parse_args()
+    p=argparse.ArgumentParser();p.add_argument('trial',choices=sorted(TRIAL_FOLDERS));p.add_argument('mode',choices=['preview','flight']);p.add_argument('--root',type=Path,required=True);p.add_argument('--model',type=Path);p.add_argument('--metadata',type=Path);p.add_argument('--check-config',action='store_true');p.add_argument('--site-config',type=Path);p.add_argument('--real-release',action='store_true');a=p.parse_args()
     folder=TRIAL_FOLDERS[a.trial]
     base=a.root/'deployment/board_trials_4x4';settings=yaml.safe_load((base/folder/'settings.yaml').read_text());rig=yaml.safe_load((base/'common/uav_board_trials/config/known_rig.yaml').read_text())
+    if a.site_config:
+        profile=yaml.safe_load(a.site_config.read_text()) or {}
+        allowed={'flight_area','search_line_x','compressed_image_topic'}
+        if not isinstance(profile,dict) or set(profile)-allowed:p.error('Unsupported site profile key')
+        settings.update(profile)
     if settings.get('actuator_mode','mock')!='mock':p.error('settings must default to mock; use --real-release explicitly')
     if a.real_release and (a.mode!='flight' or settings['mode'] in NO_DROP_MODES):p.error('--real-release requires a delivery flight module')
     settings['actuator_mode']='real' if a.real_release else ('none' if settings['mode'] in NO_DROP_MODES else 'mock')
@@ -24,7 +30,7 @@ def main():
     rospy.init_node('board_trial_supervisor',disable_signals=True)
     if rospy.get_param('/use_sim_time',False):raise RuntimeError('Board trials refuse /use_sim_time=true; do not run against laptop SITL')
     existing=set(rosnode.get_node_names())
-    conflicts=existing.intersection({'/laserMapping','/freedom','/patrol_control','/fast_planner_node','/navigation_frame_adapter','/navigation/mission_manager','/target_detector_rknn','/navigation/planner_bridge','/release_permission_arbiter','/guarded_servo_proxy','/trial_auto_land','/board_mock_servo','/trial_recorder','/map_camera_alignment'})
+    conflicts=existing.intersection({'/laserMapping','/freedom','/patrol_control','/fast_planner_node','/navigation_frame_adapter','/navigation/mission_manager','/target_detector_rknn','/navigation/planner_bridge','/release_permission_arbiter','/guarded_servo_proxy','/trial_auto_land','/board_mock_servo','/trial_recorder','/map_camera_alignment','/board_trial_bag'})
     if conflicts:raise RuntimeError('Stop the old application first: '+','.join(sorted(conflicts)))
     if '/mavros' not in existing:raise RuntimeError('Start device MAVROS and driver2 first')
     model=a.model or Path(os.environ.get('UAV_VISION_RKNN_MODEL_PATH',str(a.root/'runtime_models/flight_5cls_20260928_fp16.rknn')))
@@ -33,7 +39,7 @@ def main():
     if not metadata.is_file():raise RuntimeError('Model metadata not found; use --metadata with matching weights')
     out=a.root/'logs'/('board_'+a.trial+'_'+time.strftime('%Y%m%d_%H%M%S'));out.mkdir(parents=True,exist_ok=False)
     if shutil.disk_usage(out).free<2*1024**3:raise RuntimeError('Less than 2GB recording space available')
-    lock=threading.RLock();samples=deque(maxlen=400);state=[None];camera=[None];extended=[None];ever_armed=[False];ever_airborne=[False];image_ref=[None];lio_ref=[None];end_reason='interrupted_or_error'
+    lock=threading.RLock();samples=deque(maxlen=400);state=[None];camera=[None];extended=[None];ever_armed=[False];ever_airborne=[False];image_ref=[None];lio_ref=[None];compressed_rx=[-1e9];end_reason='interrupted_or_error'
     def pose(msg):
         with lock:
             now=rospy.Time.now().to_sec();stamp=msg.header.stamp.to_sec()
@@ -50,9 +56,21 @@ def main():
             extended[0]=msg
             if msg.landed_state==ExtendedState.LANDED_STATE_IN_AIR and state[0] is not None and state[0].armed:ever_airborne[0]=True
     subs=[rospy.Subscriber('/navigation/local_pose',PoseStamped,pose,queue_size=1),rospy.Subscriber('/mavros/state',State,vehicle,queue_size=1),rospy.Subscriber(settings.get('camera_info_topic','/camera/camera_info'),CameraInfo,lambda m:camera.__setitem__(0,m),queue_size=1),rospy.Subscriber('/mavros/extended_state',ExtendedState,extended_state,queue_size=1)]
+    subs.append(rospy.Subscriber(settings.get('compressed_image_topic',settings.get('image_topic','/camera/image_raw')+'/compressed'),CompressedImage,lambda m:compressed_rx.__setitem__(0,time.monotonic()),queue_size=1))
     subs.append(rospy.Subscriber(settings.get('lio_pose_topic','/mavros/vision_pose/pose'),PoseStamped,lambda m:lio_ref.__setitem__(0,(m.header.stamp.to_sec(),m.header.frame_id)),queue_size=1))
     subs.append(rospy.Subscriber(settings.get('image_topic','/camera/image_raw'),Image,lambda m:image_ref.__setitem__(0,(m.header.stamp.to_sec(),m.header.frame_id)),queue_size=1,buff_size=8*1024**2))
-    children=[];files=[]
+    manifest_path=a.root/'DEPLOYMENT_MANIFEST.json'
+    run_metadata=dict(trial=a.trial,mode=a.mode,settings=settings,model_path=str(model),
+        model_bytes=model.stat().st_size,metadata_path=str(metadata),
+        model_metadata=yaml.safe_load(metadata.read_text()),known_rig=rig,
+        deployment=json.loads(manifest_path.read_text()) if manifest_path.exists() else {})
+    metadata_pub=rospy.Publisher('/board_trials/run_metadata',String,queue_size=1,latch=True)
+    def record_metadata(reference=None):
+        if reference is not None:run_metadata['ground_reference']=reference
+        encoded=json.dumps(run_metadata)
+        (out/'run_metadata.json').write_text(encoded)
+        metadata_pub.publish(String(data=encoded))
+    children=[];files=[];bag=None
     env=os.environ.copy();env['ROS_LOG_DIR']=str(out/'roslog')
     def launch(name,args):
         stream=(out/(name+'.log')).open('w');files.append(stream)
@@ -60,6 +78,7 @@ def main():
     def interrupted(*unused):raise KeyboardInterrupt()
     signal.signal(signal.SIGINT,interrupted);signal.signal(signal.SIGTERM,interrupted)
     try:
+        bag=TrialBag(out,settings,env);bag.start();record_metadata()
         local=launch('localization',['mapping_profile:='+mapping_profile(settings),'alignment_mode:='+settings.get('alignment_mode','measured'),'enable_control_output:='+str(a.mode=='flight').lower(),'body_to_imu_xyz:='+' '.join(map(str,rig['body_to_imu_xyz'])),'imu_to_camera_z:='+str(rig['imu_to_camera_xyz'][2]),'camera_quat_xyzw:='+' '.join(map(str,rig['camera_quat_xyzw']))])
         until=time.monotonic()+90;reference=None;last_wait_log=0.
         while time.monotonic()<until:
@@ -69,9 +88,9 @@ def main():
                 v=np.array([v for v in samples if 0<=now-v[4]<=2.0])
                 im=image_ref[0];valid=(s is not None and s.connected and not s.armed and c is not None and c.width>0 and c.K[0]>0 and c.K[4]>0 and len(v)>=30 and im is not None and 0<=rospy.Time.now().to_sec()-im[0]<=1.)
                 lio=lio_ref[0];lio_fresh=lio is not None and lio[1]=='camera_init' and 0<=rospy.Time.now().to_sec()-lio[0]<=.3
-                valid=valid and lio_fresh
+                valid=valid and lio_fresh and time.monotonic()-compressed_rx[0]<=1.
                 if time.monotonic()-last_wait_log>5:
-                    last_wait_log=time.monotonic();print('INITIALIZING',dict(pose_samples=len(v),camera_info=c is not None,image_seen=im is not None,lio_fresh=lio_fresh,armed=s.armed if s else None),flush=True)
+                    last_wait_log=time.monotonic();print('INITIALIZING',dict(pose_samples=len(v),camera_info=c is not None,image_seen=im is not None,compressed_fresh=time.monotonic()-compressed_rx[0]<=1.,lio_fresh=lio_fresh,armed=s.armed if s else None,yaw_deg=float(np.degrees(np.mean(v[:,3]))) if len(v) else None,xyz_span=np.ptp(v[:,:3],axis=0).tolist() if len(v) else None),flush=True)
                 if valid:
                     if np.max(np.ptp(v[:,:3],axis=0))>.025 or np.ptp(v[:,3])>.04 or abs(float(np.mean(v[:,3])))>.10:valid=False
                     if v[-1,4]-v[0,4]<1.5 or rospy.Time.now().to_sec()-v[-1,4]>.3:valid=False
@@ -79,7 +98,8 @@ def main():
                     if im[1]!=c.header.frame_id:raise RuntimeError('Image and CameraInfo frames differ')
                 if valid:reference=generate(a.root,out,settings,np.median(v[:,:3],axis=0),rig);break
             time.sleep(.1)
-        if reference is None:raise RuntimeError('No stationary disarmed camera_init reference. Inspect map<->camera_init conversion, initial heading and camera; no manual Z guess was applied')
+        if reference is None:raise RuntimeError('No stationary disarmed camera_init reference. Inspect map<->camera_init conversion, initial heading, camera and compressed stream; no manual Z guess was applied')
+        record_metadata(reference)
         subs[-1].unregister()
         (out/'camera_info.json').write_text(json.dumps(dict(width=c.width,height=c.height,K=list(c.K),D=list(c.D),frame=c.header.frame_id),indent=2))
         args=['enable_control_output:='+str(a.mode=='flight').lower(),f'mode:={settings["mode"]}',f'model_path:={model}',f'metadata_path:={metadata}',f'generated_dir:={out}',f'ground_z:={reference["ground_z"]}',f'low_z:={reference["low_z"]}']
@@ -112,6 +132,7 @@ def main():
         on_ground_since=None;last_status_log=0.
         while not rospy.is_shutdown():
             if any(c.poll() is not None for c in children):raise RuntimeError('A launch exited; inspect logs')
+            bag.check()
             s=state[0];e=extended[0]
             if time.monotonic()-last_status_log>=5.:
                 last_status_log=time.monotonic();status=mission_rx[0]
@@ -127,12 +148,15 @@ def main():
             time.sleep(.2)
     except KeyboardInterrupt:pass
     finally:
-        for child in reversed(children):
-            if child.poll() is None:
-                os.killpg(child.pid,signal.SIGINT)
-                try:child.wait(timeout=25)
-                except subprocess.TimeoutExpired:os.killpg(child.pid,signal.SIGTERM);child.wait(timeout=10)
-        for stream in files:stream.close()
+        try:
+            for child in reversed(children):
+                if child.poll() is None:
+                    os.killpg(child.pid,signal.SIGINT)
+                    try:child.wait(timeout=25)
+                    except subprocess.TimeoutExpired:os.killpg(child.pid,signal.SIGTERM);child.wait(timeout=10)
+        finally:
+            if bag is not None:bag.close()
+            for stream in files:stream.close()
         s=state[0];e=extended[0]
         (out/'supervisor_result.json').write_text(json.dumps(dict(end_reason=end_reason,ever_armed=ever_armed[0],ever_airborne=ever_airborne[0],armed=s.armed if s else None,mode=s.mode if s else None,landed_state=e.landed_state if e else None,trial=a.trial,actuator_mode=settings['actuator_mode']),indent=2))
         print('Trial application stopped; device MAVROS/driver2 left running. Logs:',out,flush=True)

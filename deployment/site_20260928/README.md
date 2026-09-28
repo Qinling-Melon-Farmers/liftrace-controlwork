@@ -1,5 +1,7 @@
 # 2026-09-28 现场部署
 
+**当前五组现场试飞请用 [PREPARATION.md](PREPARATION.md)**：前方6m、左右±1.5m，入口自动加载现场范围并录制bag。八组原始4×4配置保留为默认；不要用不带现场配置的旧命令替代本次入口。
+
 香橙派：orangepi@192.168.156.193。独立目录：
 
     /home/orangepi/liftrace_board_trials_20260928
@@ -25,11 +27,11 @@
 
 先预览第一组：
 
-    bash deployment/board_trials_4x4/01_visual_interrupt/start.sh preview
+    bash deployment/site_20260928/start_test.sh 1 preview
 
 preview只启动定位、地图、视觉和录像，没有飞控设定点出口。关闭preview后，现场需要进行飞行时再执行：
 
-    bash deployment/board_trials_4x4/01_visual_interrupt/start.sh flight
+    bash deployment/site_20260928/start_test.sh 1 flight
 
 flight接通控制输出，但不自动解锁或调用任务开始。等待READY、按现场流程操作并确认低空稳定悬停后，在已source环境的另一终端调用：
 
@@ -56,7 +58,7 @@ flight接通控制输出，但不自动解锁或调用任务开始。等待READY
 
 ## 当前参数
 
-- 4×4m；起飞固定坐标+X向前、+Y向左，巡航0.5m/s、加速度0.35m/s²。
+- 本次五组使用前方6m、左右±1.5m；八组原始默认仍为4×4m。起飞固定坐标+X向前、+Y向左，巡航0.5m/s、加速度0.35m/s²。
 - 低位1.4m AGL，高位2.6m AGL，投递0.60m AGL；H专项接近1.0m、扫描1.8m。
 - 静态map→camera_init，关闭虚拟顶棚，膨胀水平0.25m/上0.20m/下0.10m。
 - FAST-LIO特征提取开启，局部地图20m，det_range=6m；高位四组启用修复后的树冠中部障碍柱。

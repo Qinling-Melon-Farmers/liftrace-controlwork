@@ -27,6 +27,8 @@
 
 ## 场地、外参与高度
 
+2026-09-28现场五组使用前方6m、左右±1.5m的显式配置，见[现场五组准备](../site_20260928/PREPARATION.md)。下列4×4是未传--site-config时的原始默认。
+
 - 总面积4×4m，固定起飞坐标约定 **+X为初始机头正前方、+Y为左侧、+Z向上**；名义X∈[0,4]、Y∈[-2,2]。起飞点在近侧边中点，初始机体会跨出边缘，后方也要留出机体空间。
 - 沿用上次板端安装：机体到IMU平移 `[0,0,0.05]`、IMU到相机 `[0,0,-0.21]`，相机相对FC下方16cm；四元数 `[0,1,0,0]` 与像素矩阵 `[-1,0,0,1]`配套，集中在 `common/uav_board_trials/config/known_rig.yaml`。
 - 已按试飞组现场分支和原始画面“左方为机头前方”同步旋转，不是仅根据仿真假设修改安装。只有实际安装变化时才改这一份公共rig配置，不需要每轮手填外参。
@@ -57,7 +59,7 @@ export UAV_VISION_RKNN_MODEL_PATH="$PWD/runtime_models/flight_5cls_20260928_fp16
 
 模型复用已部署RKNN；若模型放在旧工程，可把上述变量指向那个实际文件，不需要重新训练。板端使用既有可导入RKNN Lite2的ROS Python环境，应用不启动PyTorch。`BOARD_PYTHON`只选择监督脚本解释器，不会重写已生成的Catkin节点shebang；默认构建使用板端系统ROS Python。若原板端实际使用其他既有解释器，需要以相同`PYTHON_EXECUTABLE`重新构建两工作区，不在系统Python临时安装模型包。
 
-按上次方式先启动MAVROS、MID360 **driver2** 和已标定相机；相机应提供`/camera/image_raw`与`/camera/camera_info`。旧整机/旧4×4应用先退出，设备驱动保留。脚本会拒绝已有LIO/规划/控制/任务应用节点以及错误源码overlay。
+按上次方式先启动MAVROS、MID360 **driver2** 和已标定相机；相机应提供原始图/camera/image_raw、压缩图/camera/image_raw/compressed和/camera/camera_info。旧整机/旧4×4应用先退出，设备驱动保留。脚本会拒绝已有LIO/规划/控制/任务应用节点以及错误源码overlay。
 
 各子目录均有：
 
@@ -79,7 +81,7 @@ rosservice call /navigation/start_mission "{}"
 
 每次应用运行写入 `logs/board_<专项>_<时间>/`：
 
-- `camera_raw.mp4`：原始相机内容的640宽、5fps存档；不录整包bag。
+- `camera_raw.mp4`：原始相机内容的640宽、5fps存档；2026-09-28起板端入口另自动录制压缩相机与全链bag。
 - `camera_annotated.mp4`：YOLO橙框、几何精修/地图投影绿框与精修中心，加任务阶段、记忆、像素偏差、释放证据与模拟投递次数。框与图像时间差必须≤30ms，陈旧框不强行画到新图像上。
 - `vision_events.jsonl`：检测类别/置信度、几何/关联/拒绝原因、投影坐标、目标记忆、对准证据、mock调用、落地请求和任务状态。
 - `camera_frames.csv`、`navigation_pose.csv`：源图像/记录时间和任务系轨迹；视频存在丢帧/保持时以CSV为准。

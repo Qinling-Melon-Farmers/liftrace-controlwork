@@ -1,5 +1,7 @@
 # 八组板端专项与同链仿真（2026-09-27）
 
+2026-09-28现场五组已按前方6m、左右±1.5m准备并增加自动bag；本次不含H/走廊，[顺序、范围与启动命令](../site_20260928/PREPARATION.md)。
+
 2026-09-27晚：试飞组`high_view_priority_search.launch`实飞bag的[复盘与panzer/H优化计划](../../docs/deployment/flight_review_20260927/REPORT.md)。该轮是高位航点中断链，未运行本八组的先建队列再重访策略。
 
 2026-09-27后续：[板端参考分支与最新负载/建图档案](../../docs/deployment/board_reference_20260927/README.md)。八组已继承现场FAST-LIO/FreeDOM配置，水平膨胀0.25m；本次改参后只做离线检查与构建，尚未重跑。下文6PASS/2INCOMPLETE是此前0.275m版本。

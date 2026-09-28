@@ -17,6 +17,34 @@ def mapping_profile(settings):
         return 'high'
     return 'corridor' if settings.get('trial_kind') == 'corridor_landing' else 'low'
 
+def flight_geometry(settings):
+    defaults=dict(center_bounds=[-.35,3.4,-1.4,1.4],target_bounds=[-.35,4.,-2.,2.],
+                  search_bounds=[.6,3.2,-1.2,1.2],staging_xy=[.6,.05],
+                  survey_xy=[[1.,-1.],[3.,-1.],[3.,1.],[1.,1.],[1.,-1.]],
+                  map_size=[10.,6.,3.8])
+    custom=settings.get("flight_area",{})
+    if not isinstance(custom,dict) or set(custom)-set(defaults):raise ValueError("Unknown flight_area fields")
+    area=dict(defaults,**custom)
+    def finite(v):return not isinstance(v,bool) and isinstance(v,(int,float)) and math.isfinite(v)
+    for key in ("center_bounds","target_bounds","search_bounds"):
+        v=area[key]
+        if not isinstance(v,list) or len(v)!=4 or not all(finite(t) for t in v) or v[0]>=v[1] or v[2]>=v[3]:
+            raise ValueError("Invalid flight_area "+key)
+    bounds=area["center_bounds"];target=area["target_bounds"];search=area["search_bounds"]
+    def inside(point,box=bounds):
+        return isinstance(point,(list,tuple)) and len(point)==2 and all(finite(t) for t in point) and box[0]<=point[0]<=box[1] and box[2]<=point[1]<=box[3]
+    if not inside([0.,0.]) or not inside(area["staging_xy"]):raise ValueError("Origin/staging outside flight_area")
+    if not all(inside(v,target) for v in ([bounds[0],bounds[2]],[bounds[1],bounds[3]])):
+        raise ValueError("target_bounds must contain center_bounds")
+    if not all(inside(v) for v in ([search[0],search[2]],[search[1],search[3]])):raise ValueError("Search bounds outside flight_area")
+    points=area["survey_xy"]
+    if not isinstance(points,list) or len(points)<3 or any(not inside(v) for v in points):raise ValueError("Survey point outside flight_area")
+    size=area["map_size"]
+    if not isinstance(size,list) or len(size)!=3 or not all(finite(v) and v>0 for v in size):raise ValueError("Invalid map_size")
+    if max(abs(bounds[0]),abs(bounds[1]))+.3>=size[0]/2 or max(abs(bounds[2]),abs(bounds[3]))+.3>=size[1]/2:
+        raise ValueError("Planner map too small for flight_area and initial pose tolerance")
+    return area
+
 def validate_settings(settings):
     if settings.get('mode') not in ('visual_interrupt','low_multi',*HIGH_MODES,'landing'):
         raise ValueError('Unknown trial mode')
@@ -38,12 +66,13 @@ def validate_settings(settings):
 
     if settings.get('alignment_mode','measured') not in ('measured','legacy_static'):
         raise ValueError('Unknown alignment_mode')
+    area=flight_geometry(settings);cb=area['center_bounds']
     line=settings.get('search_line_x',[.6,1.2,1.8,2.4,3.0])
     if (not isinstance(line,list) or len(line)<2 or
             any(isinstance(v,bool) or not isinstance(v,(int,float)) or
-                not math.isfinite(v) or not .35<=v<=3.4 for v in line) or
+                not math.isfinite(v) or not max(.35,cb[0])<=v<=cb[1] for v in line) or
             any(a>=b for a,b in zip(line,line[1:]))):
-        raise ValueError('search_line_x must advance inside [0.35,3.4] m')
+        raise ValueError('search_line_x must advance inside flight_area center bounds')
     if settings.get('trial_kind') not in ('corridor_landing','full_mission'):
         return
     points=settings.get('corridor_waypoints')
@@ -55,8 +84,8 @@ def validate_settings(settings):
     def finite(value):
         return not isinstance(value,bool) and isinstance(value,(int,float)) and math.isfinite(value)
     def check_xy(x,y):
-        if not finite(x) or not finite(y) or not .35<=x<=3.4 or not -1.4<=y<=1.4:
-            raise ValueError('Waypoint/H outside configured 4x4 center bounds: X [.35,3.4], Y [-1.4,1.4]')
+        if not finite(x) or not finite(y) or not max(.35,cb[0])<=x<=cb[1] or not cb[2]<=y<=cb[3]:
+            raise ValueError('Waypoint/H outside configured flight_area center bounds')
     check_xy(*landing)
     for point in points:
         if not isinstance(point,dict) or set(point)-{'x','y','agl'} or 'x' not in point or 'y' not in point:
@@ -67,7 +96,7 @@ def validate_settings(settings):
             raise ValueError('Corridor waypoint agl must be within [0.5,1.8] m')
 
 def generate(root,out,settings,fc_xyz,rig):
-    validate_settings(settings)
+    validate_settings(settings);area=flight_geometry(settings)
     root=Path(root);out=Path(out);out.mkdir(parents=True,exist_ok=True)
     x,y,z=map(float,fc_xyz);ground=z-float(rig['fc_ground_clearance']);mode=settings['mode'];high_mode=mode in HIGH_MODES;h_landing=mode in H_MODES;drop_enabled=mode not in NO_DROP_MODES
     actuator=settings.get('actuator_mode','mock') if drop_enabled else 'none'
@@ -83,7 +112,8 @@ def generate(root,out,settings,fc_xyz,rig):
     m=runtime['mission'];m.update(home_xy=[x,y],landing_xy=[x+.6,y],approach_altitude=low,return_altitude=low,timeout=600. if mode=='high_view_full' else 300.,forced_return_at=510. if mode=='high_view_full' else 240.,post_delivery_route_revision='board-'+mode,
         post_delivery_route=[point(.6,0,low)],post_delivery_parameter_stages=[],early_return_enabled=False,delivery_reserve_per_slot=25.,return_land_reserve=45.,nominal_speed=float(settings['cruise_speed']),motion_action_timeout=30.,target_action_timeout=60.)
     runtime.pop('corridor_speed_schedule',None);runtime.pop('fixed_search_region',None)
-    runtime['search'].update(min_x=x+.6,max_x=x+3.2,min_y=y-1.2,max_y=y+1.2,lane_spacing=1.2,altitude=low)
+    sx0,sx1,sy0,sy1=area['search_bounds']
+    runtime['search'].update(min_x=x+sx0,max_x=x+sx1,min_y=y+sy0,max_y=y+sy1,lane_spacing=1.2,altitude=low)
     runtime['runtime'].update(start_mode='post_delivery' if mode=='landing' else 'full',mission_id_prefix='board-'+mode)
     # Do not make reaching a distant, possibly occupied endpoint a prerequisite
     # for seeing the target in front. Every shorter leg still uses Fast-Planner.
@@ -104,10 +134,11 @@ def generate(root,out,settings,fc_xyz,rig):
             '/fast_planner_node/sdf_map/virtual_ceil_height':(ground+3. if ceiling_enabled else -.1),
             '/navigation/planner_bridge/execution/arrival_position_tolerance':.12,
             '/navigation/planner_bridge/execution/arrival_dwell':.8})]
-    bounds=[x-.35,x+3.4,y-1.4,y+1.4]
-    runtime['high_view_probe']=dict(config=dict(ground_z=ground,high_agl=settings['high_agl'],low_agl=settings['low_agl'],staging_xy=[x+.6,y+.05],survey_xy=[point(a,b,0)[:2] for a,b in [(1,-1.0),(3,-1.0),(3,1.0),(1,1.0),(1,-1.0)]],source_key='board-inherited-camera-static-start'),camera_info_topic=settings.get('camera_info_topic','/camera/camera_info'))
+    bx0,bx1,by0,by1=area['center_bounds'];bounds=[x+bx0,x+bx1,y+by0,y+by1]
+    tx0,tx1,ty0,ty1=area['target_bounds'];target_bounds=[x+tx0,x+tx1,y+ty0,y+ty1]
+    runtime['high_view_probe']=dict(config=dict(ground_z=ground,high_agl=settings['high_agl'],low_agl=settings['low_agl'],staging_xy=[x+area['staging_xy'][0],y+area['staging_xy'][1]],survey_xy=[point(a,b,0)[:2] for a,b in area['survey_xy']],source_key='board-inherited-camera-static-start'),camera_info_topic=settings.get('camera_info_topic','/camera/camera_info'))
     runtime['high_view_probe']['low_stage_parameters']=[dict(name=key,value=value) for key,value in {'/external_planner_max_command_z':max(ground+1.85,capture+.1) if h_landing else ground+1.85,'/fast_planner_node/sdf_map/virtual_ceil_height':(ground+2. if ceiling_enabled else -.1),'/fast_planner_node/fsm/goal_adjustment_radius':.15}.items()]
-    runtime['high_view_full']=dict(policy=dict(high_max_agl=3.0,coarse_enabled=True,coarse_min_confidence=.60,coarse_interrupt_min_interval_ns=100000000,coarse_interrupt_max_gap_ns=1000000000,coarse_interrupt_consistency_m=.5,interrupt_refined_classes=[],recheck_observe_seconds=5.,recheck_shift_after_seconds=1.,recheck_shift_radius_m=.5,candidate_min_streak=1,min_interval_ns=100000000,min_span_ns=200000000,max_uncertainty_m=.45,direct_descent=True,descent_radius_m=1.,descent_max_candidates=9,survey_stall_seconds=8.,survey_progress_m=.15,survey_alternative_radius_m=.3),grid=dict(bounds=bounds,resolution=.10,inflation=.25),boundary_policy=dict(enabled=True,bounds=[x-.35,x+4.,y-2.,y+2.]))
+    runtime['high_view_full']=dict(policy=dict(high_max_agl=3.0,coarse_enabled=True,coarse_min_confidence=.60,coarse_interrupt_min_interval_ns=100000000,coarse_interrupt_max_gap_ns=1000000000,coarse_interrupt_consistency_m=.5,interrupt_refined_classes=[],recheck_observe_seconds=5.,recheck_shift_after_seconds=1.,recheck_shift_radius_m=.5,candidate_min_streak=1,min_interval_ns=100000000,min_span_ns=200000000,max_uncertainty_m=.45,direct_descent=True,descent_radius_m=1.,descent_max_candidates=9,survey_stall_seconds=8.,survey_progress_m=.15,survey_alternative_radius_m=.3),grid=dict(bounds=bounds,resolution=.10,inflation=.25),boundary_policy=dict(enabled=True,bounds=target_bounds))
     control=yaml.safe_load((root/'patrol_uav_ws-patrol_planner/src/uav_mission/config/vcl06_horizontal_control.yaml').read_text())
     control.update(waypoints=[dict(x=x,y=y,z=(ground+settings['landing_transit_agl'] if mode=='landing' else low),yaw=0.,pointmode='Takeoff_point',hover_time=0.)],align_height=low,land_height=ground+.40,px4_max_distance=.25)
     control['switch']['auto_land']=h_landing;control['drop_system'].update(enable_drop=drop_enabled,release_setpoint_height=drop,height_threshold=drop+.10)
@@ -120,7 +151,7 @@ def generate(root,out,settings,fc_xyz,rig):
         if key in rig:control['drop_system'][key]=copy.deepcopy(rig[key])
     control['external_landing'].update(frame='camera_init',capture_height=capture if h_landing else low,auto_land_height=ground+.55,detections_topic='/uav_vision/detections_mapped' if h_landing else '/board_trials/h_disabled')
     overrides={
-        '/fast_planner_node/sdf_map/resolution':.10,'/fast_planner_node/sdf_map/map_size_x':10.,'/fast_planner_node/sdf_map/map_size_y':6.,'/fast_planner_node/sdf_map/map_size_z':3.8,
+        '/fast_planner_node/sdf_map/resolution':.10,'/fast_planner_node/sdf_map/map_size_x':area['map_size'][0],'/fast_planner_node/sdf_map/map_size_y':area['map_size'][1],'/fast_planner_node/sdf_map/map_size_z':area['map_size'][2],
         '/fast_planner_node/sdf_map/visualization_rate':2.,
         '/fast_planner_node/sdf_map/local_update_range_x':4.5,'/fast_planner_node/sdf_map/local_update_range_y':3.,'/fast_planner_node/sdf_map/local_update_range_z':3.,
         '/fast_planner_node/sdf_map/ground_height':ground-.1,'/fast_planner_node/sdf_map/virtual_ceil_height':(ground+3.0 if ceiling_enabled else -.1),
