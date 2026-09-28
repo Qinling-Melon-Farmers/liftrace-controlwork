@@ -13,6 +13,7 @@
     <arg name="Y" value="0" /><arg name="gui" value="false" />
   </include>
   <include file="$(find uav_board_trials)/launch/localization.launch">
+    <arg name="start_mapping" value="true" />
     <arg name="enable_control_output" value="true" />
     <arg name="alignment_mode" value="legacy_static" />
     <arg name="lio_config" value="$(find fast_lio)/config/mid360_sim.yaml" />

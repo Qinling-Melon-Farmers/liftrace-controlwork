@@ -79,6 +79,12 @@ for folder in TRIAL_FOLDERS.values():
             assert params['/cube_side_length']==20.0 and params['/mapping/det_range']==6.0
             # FAST-LIO must not relocate its cube while stationary at its center.
             assert params['/cube_side_length']/2 > 1.5*params['/mapping/det_range']
+            assert not any(n.name=='freedom' for n in cfg.nodes)
+            mapping=roslaunch.config.load_config_default([(str(P/'launch/mapping.launch'),['mapping_profile:='+mapping_profile(s)])],11311,verbose=False)
+            params.update({k:v.value for k,v in mapping.params.items()})
+            assert [n.name for n in mapping.nodes]==['freedom']
+            assert params['/freedom/sensor_tf_frame']=='mapping_imu'
+            assert params['/freedom/map_tf_frame']=='camera_init'
             assert params['/freedom/map/voxel_depth']==2
             assert params['/freedom/map/sub_voxel_size']==.1
             assert params['/freedom/map/counts_to_free']==6 and params['/freedom/map/counts_to_revert']==20
