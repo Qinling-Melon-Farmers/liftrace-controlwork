@@ -80,4 +80,7 @@ bash deployment/board_trials_4x4/start_camera.sh /dev/video0
 
 ## 2026-09-29 新增高速拍摄计划
 
-[高速飞行拍摄专项](../docs/planning/high_speed_capture_20260929/PLAN.md)用于五类靶与H负例在0.5/1m/s、正常/较暗光照下的对照。只采集不投递，板端录bag、本机合成四种回放。本轮为计划项，尚无新增第09组启动入口，原八组速度和现场结束方式未改。
+[高速飞行拍摄专项](../docs/planning/high_speed_capture_20260929/PLAN.md)用于五类靶与H负例在0.5/1m/s、正常/较暗光照下的对照。只采集不投递，板端录bag、本机合成四种回放。第09组入口现已完成离线检查与构建，尚未实飞；原八组速度和现场结束方式未改。
+
+
+2026-09-29：[高速拍摄第09组操作](board_trials_4x4/09_high_speed_capture/README.md)。现场快捷入口capture/6，支持--capture-speed 0.5或1.0，仅采集不投递。

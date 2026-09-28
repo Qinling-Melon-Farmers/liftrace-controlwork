@@ -14,7 +14,7 @@ from mapping_startup import PoseAgreement,MapWarmup,VisionReadiness
 from uav_vision.msg import TargetDetectionArray,TargetCandidateArray
 
 def main():
-    p=argparse.ArgumentParser();p.add_argument('trial',choices=sorted(TRIAL_FOLDERS));p.add_argument('mode',choices=['preview','flight']);p.add_argument('--root',type=Path,required=True);p.add_argument('--model',type=Path);p.add_argument('--metadata',type=Path);p.add_argument('--check-config',action='store_true');p.add_argument('--site-config',type=Path);p.add_argument('--real-release',action='store_true');p.add_argument('--mapping-startup-config',type=Path);a=p.parse_args()
+    p=argparse.ArgumentParser();p.add_argument('trial',choices=sorted(TRIAL_FOLDERS));p.add_argument('mode',choices=['preview','flight']);p.add_argument('--root',type=Path,required=True);p.add_argument('--model',type=Path);p.add_argument('--metadata',type=Path);p.add_argument('--check-config',action='store_true');p.add_argument('--site-config',type=Path);p.add_argument('--real-release',action='store_true');p.add_argument('--mapping-startup-config',type=Path);p.add_argument('--capture-speed',type=float,choices=(.5,1.));p.add_argument('--capture-lighting',choices=('normal','dim','unspecified'));a=p.parse_args()
     folder=TRIAL_FOLDERS[a.trial]
     base=a.root/'deployment/board_trials_4x4';settings=yaml.safe_load((base/folder/'settings.yaml').read_text());rig=yaml.safe_load((base/'common/uav_board_trials/config/known_rig.yaml').read_text())
     startup=yaml.safe_load((a.mapping_startup_config or base/'common/uav_board_trials/config/mapping_startup.yaml').read_text())
@@ -28,6 +28,10 @@ def main():
         allowed={'flight_area','search_line_x','compressed_image_topic','high_agl','max_agl','terminal_hover_agl','auto_start_after_arm','initialization_timeout','obstacle_columns_enabled'}
         if not isinstance(profile,dict) or set(profile)-allowed:p.error('Unsupported site profile key')
         settings.update(profile)
+    if a.capture_speed is not None or a.capture_lighting is not None:
+        if a.trial!='high_speed_capture':p.error('Capture options are only valid for high_speed_capture')
+        if a.capture_speed is not None:settings['cruise_speed']=a.capture_speed
+        if a.capture_lighting is not None:settings['capture_lighting']=a.capture_lighting
     if settings.get('actuator_mode','mock')!='mock':p.error('settings must default to mock; use --real-release explicitly')
     if a.real_release and (a.mode!='flight' or settings['mode'] in NO_DROP_MODES):p.error('--real-release requires a delivery flight module')
     settings['actuator_mode']='real' if a.real_release else ('none' if settings['mode'] in NO_DROP_MODES else 'mock')

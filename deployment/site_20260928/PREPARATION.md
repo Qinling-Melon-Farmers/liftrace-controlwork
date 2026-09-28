@@ -102,3 +102,8 @@ bag可交给现成tools/bag_replay工作流生成原相机、叠加、航迹动�
 - 用户授权启用舵机，复用现场init_pwm.sh与pwm_node1，仅将服务重映射到/legacy/Servo_raw。服务类型patrol_control/Servo已读回，三仓复位后enable全0，初始脉宽为700000/1000000/1100000。没有发送释放请求。
 - 第一组尚未飞行：MAVROS connected=false、串口TX queue overflow；重连后状态话题也曾超时，随后SSH再次在banner握手超时。用户重新接线后最新SSH重试仍未登录，因此无法确认飞控是否恢复。
 - 没有解锁、模式切换或任务开始调用。待连接恢复后继续第一组，不重复整套静态验收。
+
+
+## 2026-09-29 新增第六项：高速采集
+
+原五组次序不改；capture/6追加为只拍摄不投递专项，前6m/左右1.5m、2m高位、0.5与1m/s对照、30cm悬停结束。完整操作见[第09组](../board_trials_4x4/09_high_speed_capture/README.md)。该入口刚完成离线检查与构建，尚未部署实机。

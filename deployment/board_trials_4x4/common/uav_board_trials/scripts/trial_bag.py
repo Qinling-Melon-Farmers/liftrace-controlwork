@@ -22,7 +22,7 @@ def topics_for(settings):
         "/uav_vision/drop_offset","/uav_vision/drop_ready","/uav_vision/release_evidence",
         "/uav_vision/perf","/mission/release_permission","/mission/release_permission_active",
         "/mission/release_result","/uav_high_view/probe_status",
-        "/board_trials/run_metadata","/board_trials/mock_release","/board_trials/landing_context","/board_trials/auto_land_status",
+        "/board_trials/run_metadata","/board_trials/mock_release","/board_trials/landing_context","/board_trials/auto_land_status","/board_trials/terminal_hover_status",
         "/freedom/static_pointcloud","/sdf_map/occupancy","/sdf_map/occupancy_inflate"]))
 
 def summarize(directory,required):

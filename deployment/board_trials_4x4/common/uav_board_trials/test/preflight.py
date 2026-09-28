@@ -16,15 +16,16 @@ for folder in TRIAL_FOLDERS.values():
     with tempfile.TemporaryDirectory() as tmp:
         ref=generate(R,tmp,s,(0.,0.,-.05),rig)
         for enabled in ('false','true'):
-            cfg=roslaunch.config.load_config_default([(str(P/'launch/application.launch'),[f'enable_control_output:={enabled}',f'mode:={s["mode"]}','model_path:=/test/model.rknn',f'generated_dir:={tmp}',f'ground_z:={ref["ground_z"]}',f'low_z:={ref["low_z"]}'])],11311,verbose=False)
+            cfg=roslaunch.config.load_config_default([(str(P/'launch/application.launch'),[f'enable_control_output:={enabled}',f'mode:={s["mode"]}','model_path:=/test/model.rknn',f'generated_dir:={tmp}',f'ground_z:={ref["ground_z"]}',f'low_z:={ref["low_z"]}',f'cruise_speed:={s["cruise_speed"]}',f'cruise_acceleration:={s["cruise_acceleration"]}',f'terminal_hover_enabled:={str("terminal_hover_agl" in s).lower()}',f'max_command_z:={ref["ground_z"]+s.get("max_agl",2.9)}'])],11311,verbose=False)
             values={k:v.value for k,v in cfg.params.items()};nodes={n.name:n for n in cfg.nodes}
             assert values['/fast_planner_node/sdf_map/visualization_rate']==2.
-            assert values['/fast_planner_node/manager/max_vel']==s['cruise_speed']==0.5
+            assert values['/fast_planner_node/manager/max_vel']==s['cruise_speed']
+            assert s['cruise_speed']==(1. if s['mode']=='high_speed_capture' else .5)
             assert values['/fast_planner_node/search/max_vel']==s['cruise_speed']
             assert values['/fast_planner_node/manager/max_acc']==s['cruise_acceleration']==0.35
             assert values['/fast_planner_node/sdf_map/virtual_ceil_height']==-.1
             assert [values['/fast_planner_node/sdf_map/'+key] for key in ('obstacles_inflation','obstacles_inflation_up','obstacles_inflation_down')]==[.25,.2,.1]
-            assert values['/fast_planner_node/sdf_map/horizontal_avoidance/enabled']==(s['mode'] in HIGH_MODES)
+            assert values['/fast_planner_node/sdf_map/horizontal_avoidance/enabled']==(s['mode'] in HIGH_MODES and s.get('obstacle_columns_enabled',True))
             assert values['/fast_planner_node/sdf_map/horizontal_avoidance/column_middle_enabled']
             assert values['/fast_planner_node/sdf_map/horizontal_avoidance/column_band_low_ratio']==.4
             assert values['/fast_planner_node/sdf_map/horizontal_avoidance/column_band_high_ratio']==.6
@@ -35,7 +36,7 @@ for folder in TRIAL_FOLDERS.values():
             assert values['/fast_planner_node/progress/enabled']
             assert values['/traj_server/progress/enabled']
             assert values['/traj_server/traj_server/require_goal_identity']
-            if s['mode'] in HIGH_MODES:assert values['/navigation/mission_manager/high_view_probe/config/staging_xy']==[.6,.05]
+            if s['mode'] in HIGH_MODES:assert values['/navigation/mission_manager/high_view_probe/config/staging_xy']==([.8,0.] if s['mode']=='high_speed_capture' else [.6,.05])
             assert not any(n.package in ('gazebo_ros','actuator_pwm') for n in cfg.nodes)
             assert 'trial_recorder' in nodes and 'target_detector_rknn' in nodes
             metadata=Path(values['/target_detector_rknn/metadata_path'])
@@ -44,7 +45,7 @@ for folder in TRIAL_FOLDERS.values():
             assert contract['output_channels']==9 and contract['box_format']=='xywh'
             assert ('patrol_control' in nodes)==(enabled=='true')
             assert ('board_mock_servo' in nodes)==(enabled=='true' and s['mode'] not in NO_DROP_MODES)
-            assert ('trial_auto_land' in nodes)==(enabled=='true' and s['mode'] not in H_MODES)
+            assert ('trial_auto_land' in nodes)==(enabled=='true' and s['mode'] not in H_MODES and 'terminal_hover_agl' not in s)
             if enabled=='true' and s['mode'] not in NO_DROP_MODES:
                 assert values['/guarded_servo_proxy/raw_service_name']=='/board_trials/mock_servo';assert values['/release_permission_arbiter/pose_topic']=='/navigation/local_pose'
                 assert values['/guarded_servo_proxy/service_name']=='/board_trials/Servo'
@@ -96,4 +97,5 @@ for folder in TRIAL_FOLDERS.values():
             assert params['/preprocess/lidar_type']==1
             assert params['/mapping/extrinsic_T']==[-.011,-.02329,.04412]
 
-(R/'deployment/board_trials_4x4/validation_static.json').write_text(json.dumps(rows,indent=2));print(json.dumps(rows,indent=2))
+(R/'logs/high_speed_capture_20260929').mkdir(parents=True,exist_ok=True)
+(R/'logs/high_speed_capture_20260929/validation_static.json').write_text(json.dumps(rows,indent=2));print(json.dumps(rows,indent=2))

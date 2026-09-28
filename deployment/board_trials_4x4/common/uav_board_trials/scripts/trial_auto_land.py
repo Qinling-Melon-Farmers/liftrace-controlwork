@@ -11,11 +11,13 @@ from std_msgs.msg import String
 
 def trial_ready(status,context,frame):
     return (bool(context) and context.get('scope')=='board_trial_landing_after_mock'
-            and context.get('frame')==frame and context.get('mode') in ('visual_interrupt','low_multi','high_view','high_priority','memory_only')
+            and context.get('frame')==frame and context.get('mode') in ('visual_interrupt','low_multi','high_view','high_priority','memory_only','high_speed_capture')
             and ((context.get('mode')=='memory_only' and context.get('expected')==0
                   and context.get('committed')==0 and context.get('memory_complete') is True
                   and 1<=context.get('memory_count',0)<=3)
-                 or (context.get('mode')!='memory_only' and 1<=context.get('expected',0)<=3
+                 or (context.get('mode')=='high_speed_capture' and context.get('expected')==0
+                     and context.get('committed')==0 and context.get('capture_complete') is True)
+                 or (context.get('mode') not in ('memory_only','high_speed_capture') and 1<=context.get('expected',0)<=3
                      and context.get('committed',0)==context['expected']))
             and status.get('phase')=='LAND' and status.get('active_command')=='LAND'
             and status.get('mission_failed') is False and bool(status.get('mission_id'))

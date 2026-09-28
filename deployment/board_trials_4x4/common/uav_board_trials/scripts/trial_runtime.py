@@ -3,6 +3,7 @@ from dataclasses import replace,asdict
 import math,itertools
 from uav_mission.mission_runtime import MissionRuntime
 from uav_mission.high_view_full import HighViewFull
+from uav_mission.high_view_probe import HighViewProbe
 from uav_mission.mission_core import GoalSnapshot,MissionPhase
 from uav_high_view.core import Epoch
 from uav_high_view.grid_cost import GridCost
@@ -147,3 +148,26 @@ class FullMissionTrialRuntime(HighViewFull):
         self.catalog.reset(Epoch(mission_id,'fixed-board-session',self.probe_config.source_key))
         self.survey_until=now+self.core.config.mission_timeout
         return MissionRuntime.start(self,mission_id,now,current_xy)
+
+
+class HighSpeedCaptureRuntime(MemoryOnlyRuntime):
+    """Fixed capture passes; record hints without requiring one or visiting it."""
+    def __init__(self,*args,**kwargs):
+        super().__init__(*args,**kwargs)
+        self.capture_complete=False
+    def _retreat(self,now):
+        if not self.ascent_verified or not self.route.is_complete:
+            return self._finish(False,'board_capture_route_incomplete',now)
+        self.trial_manifest=dict(self._all_hints(now))
+        self.events.append(dict(stage='BOARD_CAPTURE_PASSES_COMPLETE',time=now,classes=sorted(self.trial_manifest)))
+        # Return to the verified ascent location and descend with the same 3-D
+        # planner. Neither an empty catalogue nor a category conflict starts a revisit.
+        return HighViewProbe._retreat(self,now)
+    def _next_target(self,now):
+        self.capture_complete=True
+        return self.end_here(now,'board_high_speed_capture_complete')
+    def probe_status(self):
+        value=super().probe_status()
+        value.update(scope='BOARD_HIGH_SPEED_CAPTURE',capture_complete=self.capture_complete,
+                     detection_success_evaluated=False)
+        return value

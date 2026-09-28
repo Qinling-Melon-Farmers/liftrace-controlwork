@@ -15,7 +15,7 @@ from uav_high_view.grid_cost import GridCost
 helper_dir=Path(__file__).resolve().parent
 if not (helper_dir/'trial_runtime.py').exists():helper_dir=Path(rospkg.RosPack().get_path('uav_board_trials'))/'scripts'
 sys.path.insert(0,str(helper_dir))
-from trial_runtime import SingleDeliveryRuntime,FullCircleRuntime,OpenTourGrid,MultiDeliveryRuntime,PriorityRevisitRuntime,MemoryOnlyRuntime,FullMissionTrialRuntime
+from trial_runtime import SingleDeliveryRuntime,FullCircleRuntime,OpenTourGrid,MultiDeliveryRuntime,PriorityRevisitRuntime,MemoryOnlyRuntime,FullMissionTrialRuntime,HighSpeedCaptureRuntime
 from trial_config import HIGH_MODES,H_MODES
 path=Path(rospkg.RosPack().get_path('uav_mission'))/'scripts/navigation_mission_manager.py'
 spec=importlib.util.spec_from_file_location('board_existing_mission_shell',path);base=importlib.util.module_from_spec(spec);spec.loader.exec_module(base)
@@ -43,7 +43,7 @@ class BoardManager(base.NavigationMissionManager):
         if self.mode not in HIGH_MODES:return SingleDeliveryRuntime(ordinary.core,route)
         cfg=dict(rospy.get_param('~high_view_probe/config'));cfg['survey_xy']=tuple(tuple(v) for v in cfg['survey_xy'])
         if cfg.get('staging_xy'):cfg['staging_xy']=tuple(cfg['staging_xy'])
-        runtime_class={'high_view':FullCircleRuntime,'high_priority':PriorityRevisitRuntime,'memory_only':MemoryOnlyRuntime,'high_view_full':FullMissionTrialRuntime}[self.mode]
+        runtime_class={'high_view':FullCircleRuntime,'high_priority':PriorityRevisitRuntime,'memory_only':MemoryOnlyRuntime,'high_view_full':FullMissionTrialRuntime,'high_speed_capture':HighSpeedCaptureRuntime}[self.mode]
         runtime=runtime_class(ordinary.core,ProbeConfig(**cfg),SurveyPolicy(**dict(rospy.get_param('~high_view_full/policy'))),
             fallback_route=ordinary.route if self.mode=='high_view_full' else None,boundary_policy=BoundaryRevisit(**dict(rospy.get_param('~high_view_full/boundary_policy'))))
         runtime.grid=(GridCost if self.mode=='high_view_full' else OpenTourGrid)(**dict(rospy.get_param('~high_view_full/grid')));return runtime
@@ -93,8 +93,8 @@ class BoardManager(base.NavigationMissionManager):
             if any(rospy.get_param(item['name'])!=item['value'] for item in limits):raise RuntimeError('Low-stage parameter readback failed')
             self._low_limits_applied=True
         if action is not None and action.command=='LAND' and self.mode not in H_MODES:
-            core=self._runtime.core;expected=0 if self.mode=='memory_only' else (len(self._runtime.trial_manifest or {}) if self.mode in HIGH_MODES else getattr(self._runtime,'delivery_count',1))
-            self._landing_pub.publish(String(data=json.dumps(dict(scope='board_trial_landing_after_mock',mode=self.mode,actuator_mode=rospy.get_param('~trial/actuator_mode','mock'),memory_count=len(getattr(self._runtime,'trial_manifest',None) or {}),memory_complete=self.mode=='memory_only' and action.reason=='board_memory_only_complete',mission_id=core.mission_id,decision_seq=action.decision_seq,frame=core.config.mission_frame,xy=list(core.config.landing_xy),z=core.config.return_altitude,expected=expected,committed=core.committed_slots,time=rospy.Time.now().to_sec()))))
+            core=self._runtime.core;expected=0 if self.mode in ('memory_only','high_speed_capture') else (len(self._runtime.trial_manifest or {}) if self.mode in HIGH_MODES else getattr(self._runtime,'delivery_count',1))
+            self._landing_pub.publish(String(data=json.dumps(dict(scope='board_trial_landing_after_mock',mode=self.mode,actuator_mode=rospy.get_param('~trial/actuator_mode','mock'),memory_count=len(getattr(self._runtime,'trial_manifest',None) or {}),memory_complete=self.mode=='memory_only' and action.reason=='board_memory_only_complete',capture_complete=self.mode=='high_speed_capture' and action.reason=='board_high_speed_capture_complete',mission_id=core.mission_id,decision_seq=action.decision_seq,frame=core.config.mission_frame,xy=list(core.config.landing_xy),z=core.config.return_altitude,expected=expected,committed=core.committed_slots,time=rospy.Time.now().to_sec()))))
         super()._publish_action(action)
 
 if __name__=='__main__':rospy.init_node('mission_manager');BoardManager();rospy.spin()

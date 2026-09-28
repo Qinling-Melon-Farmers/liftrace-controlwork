@@ -36,7 +36,7 @@ class Recorder:
             rospy.Subscriber('/uav_vision/release_evidence',ReleaseEvidence,self.evidence,queue_size=1),
             rospy.Subscriber('/mission/release_permission_active',Bool,self.permission,queue_size=1),
             rospy.Subscriber('/navigation/local_pose',PoseStamped,self.pose,queue_size=1)]
-        for key,topic in [('mission','/navigation/mission_status'),('high','/uav_high_view/probe_status'),('mock','/board_trials/mock_release'),('align','/uav_vision/align_mode'),('land_handoff','/board_trials/auto_land_status')]:
+        for key,topic in [('mission','/navigation/mission_status'),('high','/uav_high_view/probe_status'),('mock','/board_trials/mock_release'),('align','/uav_vision/align_mode'),('land_handoff','/board_trials/auto_land_status'),('terminal_hover','/board_trials/terminal_hover_status')]:
             self.subs.append(rospy.Subscriber(topic,String,lambda m,k=key:self.text(k,m),queue_size=1))
         self.timer=None
         if self.video_enabled:
