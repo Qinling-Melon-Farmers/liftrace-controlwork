@@ -18,6 +18,7 @@ for trial in TRIAL_FOLDERS:
         assert params['/fast_planner_node/sdf_map/virtual_ceil_height']==-.1
         assert params['/fast_planner_node/sdf_map/obstacles_inflation']==.25
         assert params['/navigation/mission_manager/high_view_full/grid/inflation']==.25
+        assert params['/navigation/mission_manager/high_view_full/policy/interrupt_refined_classes']==[]
         assert params['/feature_extract_enable'] is True
         assert params['/cube_side_length']==20. and params['/mapping/det_range']==6.
         assert params['/preprocess/lidar_type']==4  # simulator remains PointCloud2

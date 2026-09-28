@@ -111,3 +111,9 @@ bash deployment/board_trials_4x4/01_visual_interrupt/start.sh preview
 - 本轮没有启动Gazebo、ROS仿真或实机。此前6PASS/2INCOMPLETE属于本次改参前的版本，见[历史八组录像/报告](../../verification/board_modules_20260927/REPORT.md)，不能写成新配置已经动态通过。
 
 下一步按01/03→05→07/02/06→08做现场逐项验收，优先看点云规模/更新延迟、定位稳定性、候选与释放事务。当前提交的构建和离线验证足以证明入口参数连通，不证明实际板端负载、窄门轨迹或实物投递精度。
+
+## 2026-09-28 后续：取消panzer特判
+
+八组当前生成配置统一`interrupt_refined_classes: []`。06/08可凭两帧一致的panzer粗线索参与TOP3提前结束；02/07仍完成各自完整环线。低空复核与释放许可不变。本次仅离线验证，之前六组结果不代表取消后的动态验收。完整[策略、逐类退化和增强明细](https://github.com/Qinling-Melon-Farmers/liftrace-visionwork/blob/feat/high-view-search-research/docs/planning/panzer_five_class_20260928/VALIDATION_AND_AUGMENTATION.md)。
+
+本轮视觉策略来源：`liftrace-visionwork / feat/high-view-search-research@efbc8fec1f42ff2e050811449ea9aaee8b493650`。

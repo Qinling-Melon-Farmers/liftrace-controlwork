@@ -51,6 +51,7 @@ for folder in TRIAL_FOLDERS.values():
                 assert ('/Servo','/board_trials/Servo') in [tuple(v) for v in nodes['patrol_control'].remap_args],nodes['patrol_control'].remap_args
                 assert values['/external_landing/detections_topic']==('/uav_vision/detections_mapped' if s['mode'] in H_MODES else '/board_trials/h_disabled')
             runtime=yaml.safe_load((Path(tmp)/'runtime.yaml').read_text())
+            assert values['/navigation/mission_manager/high_view_full/policy/interrupt_refined_classes']==[]
             # Exercise the actual adapter's mission/runtime construction with expanded parameters.
             def get_param(key,default=None):
                 path='/navigation/mission_manager/'+key[1:] if key.startswith('~') else key
