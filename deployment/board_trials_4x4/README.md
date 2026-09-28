@@ -1,5 +1,7 @@
 # 4×4板端专项测试：八组独立入口
 
+2026-09-28现场：已部署到192.168.156.193的独立目录liftrace_board_trials_20260928，完成板端双工作区构建与新模型NPU样帧检查。[本次操作入口与检查结果](../site_20260928/README.md)。原现场工程保留；尚未实飞验收。
+
 **2026-09-27当前版本：已对齐现场FAST-LIO/FreeDOM负载档案，膨胀25/20/10cm，八组继续静态TF、关闭顶棚，高位四组保留最新中部柱。[导航仓板端参考分支交接](../../docs/deployment/board_reference_20260927/README.md)。本次改参后只做离线检查与构建；此前0.275m版本6组完整通过、走廊相关2组INCOMPLETE，[历史录像](../../docs/verification/board_modules_20260927/REPORT.md)不能替代本次新配置验收。最新操作见[MODULES.md](MODULES.md)。**
 
 2026-09-26：按试飞组fa621262对齐相机/槽位与恢复高度，统一25/20/10cm三维膨胀；仅高位专项增加中部柱。已本机构建，未重新上板。[说明](../../docs/planning/obstacle_board_alignment_20260926/REPORT.md)。

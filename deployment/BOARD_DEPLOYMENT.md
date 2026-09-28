@@ -1,5 +1,7 @@
 # 板端部署与试飞分支
 
+2026-09-28最新现场部署：新IP **192.168.156.193**，独立目录 **/home/orangepi/liftrace_board_trials_20260928**。八组及五分类RKNN已完成板端构建、离线初始化与NPU样帧验证；现场命令见[部署操作说明](site_20260928/README.md)。默认模拟投递，尚未启动飞行。下文旧IP/旧目录为历史记录。
+
 2026-09-28：[新增两轮高位巡航复盘与研究版适用性](../docs/deployment/flight_pair_20260928/REPORT.md)。真实装甲车先记成bridge，低位改类未更新冻结事务，后续真bridge已确认却被已投类别过滤；包含八份回放，在线代码未改。
 
 2026-09-27晚：试飞组`high_view_priority_search.launch`实飞bag的[复盘与panzer/H优化计划](../docs/deployment/flight_review_20260927/REPORT.md)。该轮是高位航点中断链，未运行本八组的先建队列再重访策略。
