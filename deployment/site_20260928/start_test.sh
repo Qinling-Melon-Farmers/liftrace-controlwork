@@ -12,4 +12,8 @@ case "$trial" in
   *) echo "Usage: start_test.sh 1|2|3|4|5 [preview|flight]"; exit 2 ;;
 esac
 [[ $# -le 2 ]] || { echo "Use the explicit per-module start_real.sh for a separately prepared real release"; exit 2; }
+if [[ "$mode" == flight && "$folder" != 07_memory_only ]]; then
+  echo "SITE 2026-09-28: REAL release selected by operator; guarded Servo chain."
+  exec bash "$site_dir/../board_trials_4x4/$folder/start_real.sh" --site-config "$site_dir/test_area.yaml"
+fi
 exec bash "$site_dir/../board_trials_4x4/$folder/start.sh" "$mode" --site-config "$site_dir/test_area.yaml"
