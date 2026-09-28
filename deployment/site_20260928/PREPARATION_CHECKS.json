@@ -38,5 +38,19 @@
     "No arming, mission-start or servo command sent.",
     "No actual flight acceptance.",
     "Static checks do not verify boundary tracking or CPU/storage throughput during flight."
-  ]
+  ],
+  "latest_site_execution": {
+    "deployed_revision": "1da9c7f",
+    "servo_service": "/legacy/Servo_raw",
+    "servo_type": "patrol_control/Servo",
+    "servo_reset_verified": true,
+    "pwm_enabled": [
+      0,
+      0,
+      0
+    ],
+    "release_requests_sent": 0,
+    "flight_started": false,
+    "blocking": "FCU disconnected / TX queue overflow; subsequent SSH banner timeout"
+  }
 }
