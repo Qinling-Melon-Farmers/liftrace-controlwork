@@ -17,7 +17,7 @@ def main():
     base=a.root/'deployment/board_trials_4x4';settings=yaml.safe_load((base/folder/'settings.yaml').read_text());rig=yaml.safe_load((base/'common/uav_board_trials/config/known_rig.yaml').read_text())
     if a.site_config:
         profile=yaml.safe_load(a.site_config.read_text()) or {}
-        allowed={'flight_area','search_line_x','compressed_image_topic','high_agl','max_agl','terminal_hover_agl','auto_start_after_arm'}
+        allowed={'flight_area','search_line_x','compressed_image_topic','high_agl','max_agl','terminal_hover_agl','auto_start_after_arm','initialization_timeout'}
         if not isinstance(profile,dict) or set(profile)-allowed:p.error('Unsupported site profile key')
         settings.update(profile)
     if settings.get('actuator_mode','mock')!='mock':p.error('settings must default to mock; use --real-release explicitly')
@@ -80,7 +80,7 @@ def main():
     try:
         bag=TrialBag(out,settings,env);bag.start();record_metadata()
         local=launch('localization',['mapping_profile:='+mapping_profile(settings),'alignment_mode:='+settings.get('alignment_mode','measured'),'enable_control_output:='+str(a.mode=='flight').lower(),'body_to_imu_xyz:='+' '.join(map(str,rig['body_to_imu_xyz'])),'imu_to_camera_z:='+str(rig['imu_to_camera_xyz'][2]),'camera_quat_xyzw:='+' '.join(map(str,rig['camera_quat_xyzw']))])
-        until=time.monotonic()+90;reference=None;last_wait_log=0.
+        until=time.monotonic()+float(settings.get("initialization_timeout",90));reference=None;last_wait_log=0.
         while time.monotonic()<until:
             if local.poll() is not None:raise RuntimeError('Localization launch exited; inspect localization.log')
             with lock:
