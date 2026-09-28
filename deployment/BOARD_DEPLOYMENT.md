@@ -76,3 +76,8 @@ bash deployment/board_trials_4x4/start_camera.sh /dev/video0
 八组共享 `flight_5cls_20260928_fp16.rknn` 与 `vision_ws/src/uav_vision/config/flight_5cls_20260928_metadata.yaml`。默认模型名已更新，可用 `--model <路径> --metadata <匹配YAML>` 显式选择。仅换模型不要沿用六类表：red_cross现在是输出ID4；内部ROS消息仍使用类别名，任务/槽位接口不变。旧模型回退必须两个参数一起指定。
 
 模型包单独交付；仓库只含配置、适配、工具与报告。默认模拟投递、显式实投入口、现场接线、静态TF、关闭虚拟顶棚、25/20/10cm膨胀保持原值。新增六组检查排除走廊两组；本次结果见 `docs/verification/model_five_class_20260928/REPORT.md`，不能沿用9月27日旧参数下“6组通过”的结论。板端NPU/实投仍需现场验收。
+
+
+## 2026-09-29 新增高速拍摄计划
+
+[高速飞行拍摄专项](../docs/planning/high_speed_capture_20260929/PLAN.md)用于五类靶与H负例在0.5/1m/s、正常/较暗光照下的对照。只采集不投递，板端录bag、本机合成四种回放。本轮为计划项，尚无新增第09组启动入口，原八组速度和现场结束方式未改。

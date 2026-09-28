@@ -57,3 +57,8 @@
 - `/home/xhj/liftrace/vision_ws/test_data/yolo_dataset_v6_5cls_flight_h_20260928/manifest.json`：来源、类别、派生变换。
 - `/home/xhj/liftrace/vision_ws/runs/liftrace_5cls_flight_h_20260928/candidate/args.yaml`：实际训练参数。
 - `tools/model_finetune/prepare.py`、`train.py`：增强实现；数据、模型、视频均未加入Git。
+
+
+## 2026-09-29 高速实拍补充
+
+已增加[高速飞行拍摄专项计划](../high_speed_capture_20260929/PLAN.md)：2m高位0.5/1m/s、正常与较暗光照，覆盖五类及H负例；以实际等速区间评价正确线索、独立支持、误检与处理延迟。复用bag和本机视频合成，后续再补1.4m低位确认。当前模型和0.60粗阈值不变，尚未现场采集；数据按整航次划分训练与验证。
