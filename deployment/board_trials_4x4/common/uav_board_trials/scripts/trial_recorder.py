@@ -21,15 +21,14 @@ def image_to_bgr(msg):
 class Recorder:
     def __init__(self):
         self.out=Path(rospy.get_param('~directory'));self.out.mkdir(parents=True,exist_ok=True)
-        self.fps=float(rospy.get_param('~fps',5));self.width=int(rospy.get_param('~width',640));self.started=time.monotonic();self.max_seconds=float(rospy.get_param('~max_seconds',900));self.lock=threading.RLock()
+        self.video_enabled=bool(rospy.get_param('~video_enabled',False));self.fps=float(rospy.get_param('~fps',5));self.width=int(rospy.get_param('~width',640));self.started=time.monotonic();self.max_seconds=float(rospy.get_param('~max_seconds',900));self.lock=threading.RLock()
         if not 1<=self.fps<=10 or not 160<=self.width<=1280 or self.width%2:raise ValueError('Recording rate/size outside board budget')
         self.images=deque(maxlen=16);self.yolo=deque(maxlen=20);self.mapped=deque(maxlen=20);self.coarse=deque(maxlen=20);self.state={};self.last={};self.writers=[];self.frames=0;self.matched=0
         self.actuator_mode=rospy.get_param('/board_trials/actuator_mode','mock')
         self.closed=False;self.events=(self.out/'vision_events.jsonl').open('w');self.csvfile=(self.out/'camera_frames.csv').open('w');self.csv=csv.writer(self.csvfile);self.csv.writerow(['frame','record_ros_sec','image_ros_sec','image_age_s','yolo_dt_s','mapped_dt_s'])
         self.posefile=(self.out/'navigation_pose.csv').open('w');self.posecsv=csv.writer(self.posefile);self.posecsv.writerow(['t','x','y','z','qx','qy','qz','qw','frame'])
         cv2.setNumThreads(1)
-        self.subs=[rospy.Subscriber(rospy.get_param('~image_topic','/camera/image_raw'),Image,self.image,queue_size=1,buff_size=8*1024**2),
-            rospy.Subscriber(rospy.get_param('~yolo_topic','/uav_vision/detections'),TargetDetectionArray,lambda m:self.detections('yolo',m),queue_size=1),
+        self.subs=[rospy.Subscriber(rospy.get_param('~yolo_topic','/uav_vision/detections'),TargetDetectionArray,lambda m:self.detections('yolo',m),queue_size=1),
             rospy.Subscriber(rospy.get_param('~mapped_topic','/uav_vision/detections_mapped'),TargetDetectionArray,lambda m:self.detections('mapped',m),queue_size=1),
             rospy.Subscriber('/uav_vision/navigation_hints',TargetDetectionArray,lambda m:self.detections('coarse',m),queue_size=1),
             rospy.Subscriber('/uav_vision/targets',TargetCandidateArray,self.targets,queue_size=1),
@@ -39,7 +38,11 @@ class Recorder:
             rospy.Subscriber('/navigation/local_pose',PoseStamped,self.pose,queue_size=1)]
         for key,topic in [('mission','/navigation/mission_status'),('high','/uav_high_view/probe_status'),('mock','/board_trials/mock_release'),('align','/uav_vision/align_mode'),('land_handoff','/board_trials/auto_land_status')]:
             self.subs.append(rospy.Subscriber(topic,String,lambda m,k=key:self.text(k,m),queue_size=1))
-        self.timer=rospy.Timer(rospy.Duration(1/self.fps),self.frame);rospy.on_shutdown(self.close)
+        self.timer=None
+        if self.video_enabled:
+            self.subs.append(rospy.Subscriber(rospy.get_param('~image_topic','/camera/image_raw'),Image,self.image,queue_size=1,buff_size=8*1024**2))
+            self.timer=rospy.Timer(rospy.Duration(1/self.fps),self.frame)
+        rospy.on_shutdown(self.close)
     def log(self,key,data,period=.2):
         with self.lock:
             if self.closed:return
@@ -121,5 +124,5 @@ class Recorder:
             for writer in self.writers:writer.release()
             for f in (self.events,self.csvfile,self.posefile):
                 if not f.closed:f.close()
-            (self.out/'recording.json').write_text(json.dumps(dict(frames=self.frames,fps=self.fps,yolo_matched_frames=self.matched,boxed_frame_tolerance_s=.03,images_buffered_max=16,width=self.width,clock=('ROS simulated time' if rospy.get_param('/use_sim_time',False) else 'ROS wall time')+'; see camera_frames.csv'),indent=2))
+            (self.out/'recording.json').write_text(json.dumps(dict(video_enabled=self.video_enabled,frames=self.frames,fps=self.fps,yolo_matched_frames=self.matched,boxed_frame_tolerance_s=.03,images_buffered_max=16,width=self.width,clock=('ROS simulated time' if rospy.get_param('/use_sim_time',False) else 'ROS wall time')+'; see camera_frames.csv'),indent=2))
 if __name__=='__main__':rospy.init_node('trial_recorder');Recorder();rospy.spin()

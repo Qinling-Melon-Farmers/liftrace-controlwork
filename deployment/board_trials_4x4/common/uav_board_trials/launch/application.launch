@@ -3,6 +3,7 @@
   <arg name="terminal_hover_enabled" default="false" />
   <arg name="max_command_z" default="$(eval float(arg('ground_z'))+2.9)" />
   <arg name="simulation" default="false" />
+  <arg name="record_camera_video" default="$(arg simulation)" />
   <arg name="enable_control_output" default="false" />
   <arg name="cruise_speed" default="0.5" />
   <arg name="cruise_acceleration" default="0.35" />
@@ -107,6 +108,7 @@
   </node>
   <rosparam file="$(arg generated_dir)/overrides.yaml" />
   <node pkg="uav_board_trials" type="trial_recorder.py" name="trial_recorder" output="screen">
+    <param name="video_enabled" value="$(arg record_camera_video)" />
     <param name="directory" value="$(arg generated_dir)" />
     <param name="image_topic" value="$(arg image_topic)" />
     <param name="fps" value="5" />
