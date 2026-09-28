@@ -134,7 +134,7 @@ class HighViewFull(HighViewProbe):
             if (self.pose is None or not 0<=now-self.pose_stamp<=self.probe_config.pose_max_age):
                 return 'coarse_pose_unavailable'
             agl=self.pose[2]-self.probe_config.ground_z
-            if not max(2.,self.probe_config.high_agl-.2)<=agl<=self.policy.high_max_agl:
+            if not max(self.policy.high_min_agl,self.probe_config.high_agl-.2)<=agl<=self.policy.high_max_agl:
                 return 'coarse_not_at_high_view'
             ns=int(round(now*1e9))
             if (type(stamp_ns) is not int or stamp_ns<=0 or

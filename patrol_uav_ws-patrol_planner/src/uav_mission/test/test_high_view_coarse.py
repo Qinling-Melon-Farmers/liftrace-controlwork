@@ -20,6 +20,21 @@ class CoarseTests(unittest.TestCase):
         data.update(kwargs)
         return self.r.ingest_coarse(**data)
 
+    def test_two_metre_survey_observation_tolerance_is_not_flight_cap(self):
+        for agl in (1.81,1.95,2.,2.05,2.19):
+            self.setUp()
+            self.r.policy=replace(self.r.policy,high_min_agl=1.8,high_max_agl=2.2)
+            self.r.probe_config=replace(self.r.probe_config,high_agl=2.)
+            self.r.pose=(0.,0.,self.r.probe_config.ground_z+agl)
+            self.assertEqual(self.cue(),'coarse_accepted')
+            self.assertEqual(self.r.core.committed_slots,0)
+        for agl in (1.4,1.79,2.21):
+            self.setUp()
+            self.r.policy=replace(self.r.policy,high_min_agl=1.8,high_max_agl=2.2)
+            self.r.probe_config=replace(self.r.probe_config,high_agl=2.)
+            self.r.pose=(0.,0.,self.r.probe_config.ground_z+agl)
+            self.assertEqual(self.cue(),'coarse_not_at_high_view')
+
     def test_one_bbox_can_be_remembered_without_delivery_candidate(self):
         self.assertEqual(self.cue(),'coarse_accepted')
         hint=self.r._all_hints(101.)['panzer']
