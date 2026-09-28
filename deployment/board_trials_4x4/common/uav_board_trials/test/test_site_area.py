@@ -23,6 +23,14 @@ class SiteArea(unittest.TestCase):
                     self.assertTrue(expected[0]<=x<=expected[1] and expected[2]<=y<=expected[3])
                 self.assertEqual(settings["cruise_speed"],.5)
                 self.assertEqual(ov["/fast_planner_node/sdf_map/virtual_ceil_height"],-.1)
+    def test_high_strategy_rejects_nine_points_before_ros_start(self):
+        settings=yaml.safe_load((BASE/'07_memory_only/settings.yaml').read_text())
+        settings.update(copy.deepcopy(SITE))
+        self.assertEqual(len(settings['flight_area']['survey_xy']),8)
+        validate_settings(settings)
+        settings['flight_area']['survey_xy'].insert(-1,[.6,0.])
+        with self.assertRaisesRegex(ValueError,'invalid probe configuration'):
+            validate_settings(settings)
     def test_invalid_or_mismatched_geometry_rejected(self):
         settings=yaml.safe_load((BASE/"01_visual_interrupt/settings.yaml").read_text())
         for change in [dict(map_size=[10.,6.,3.8]),dict(survey_xy=[[.6,0],[7,0],[.6,0]]),
