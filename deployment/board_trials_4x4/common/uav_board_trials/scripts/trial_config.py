@@ -72,6 +72,7 @@ def validate_settings(settings):
     if not isinstance(max_agl,(int,float)) or not math.isfinite(max_agl) or not 2.<=max_agl<=3.:raise ValueError('invalid max_agl')
     if settings['high_agl']>max_agl:raise ValueError('high altitude exceeds cap')
     if 'terminal_hover_agl' in settings and not .25<=settings['terminal_hover_agl']<=.5:raise ValueError('invalid terminal hover')
+    if type(settings.get('obstacle_columns_enabled',True)) is not bool:raise ValueError('invalid obstacle column flag')
     area=flight_geometry(settings);cb=area['center_bounds']
     if settings['mode'] in HIGH_MODES:
         from uav_mission.high_view_probe import ProbeConfig
@@ -176,7 +177,7 @@ def generate(root,out,settings,fc_xyz,rig):
         '/fast_planner_node/sdf_map/horizontal_avoidance/floor_z':ground+.1,'/fast_planner_node/sdf_map/horizontal_avoidance/obstacle_min_z':ground+.4,
         # Low visual/H/corridor trials use the successful board's real 3-D map.
         # Only the tree/high survey trial additionally enforces no-overflight.
-        '/fast_planner_node/sdf_map/horizontal_avoidance/enabled':high_mode,
+        '/fast_planner_node/sdf_map/horizontal_avoidance/enabled':high_mode and settings.get('obstacle_columns_enabled',True),
         '/fast_planner_node/sdf_map/search_region/enabled':True,'/fast_planner_node/sdf_map/search_region/min_x':bounds[0],'/fast_planner_node/sdf_map/search_region/max_x':bounds[1],'/fast_planner_node/sdf_map/search_region/min_y':bounds[2],'/fast_planner_node/sdf_map/search_region/max_y':bounds[3],
         '/fast_planner_node/sdf_map/obstacles_inflation':.25,
         '/fast_planner_node/sdf_map/obstacles_inflation_up':.20,

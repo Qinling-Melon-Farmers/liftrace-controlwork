@@ -17,7 +17,7 @@ def main():
     base=a.root/'deployment/board_trials_4x4';settings=yaml.safe_load((base/folder/'settings.yaml').read_text());rig=yaml.safe_load((base/'common/uav_board_trials/config/known_rig.yaml').read_text())
     if a.site_config:
         profile=yaml.safe_load(a.site_config.read_text()) or {}
-        allowed={'flight_area','search_line_x','compressed_image_topic','high_agl','max_agl','terminal_hover_agl','auto_start_after_arm','initialization_timeout'}
+        allowed={'flight_area','search_line_x','compressed_image_topic','high_agl','max_agl','terminal_hover_agl','auto_start_after_arm','initialization_timeout','obstacle_columns_enabled'}
         if not isinstance(profile,dict) or set(profile)-allowed:p.error('Unsupported site profile key')
         settings.update(profile)
     if settings.get('actuator_mode','mock')!='mock':p.error('settings must default to mock; use --real-release explicitly')
