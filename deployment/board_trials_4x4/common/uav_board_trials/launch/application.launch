@@ -107,7 +107,10 @@
     <rosparam file="$(arg generated_dir)/terminal_hover.yaml" />
   </node>
   <rosparam file="$(arg generated_dir)/overrides.yaml" />
-  <node pkg="uav_board_trials" type="trial_recorder.py" name="trial_recorder" output="screen">
+  <node pkg="uav_board_trials" type="trial_journal.py" name="trial_journal" output="screen" unless="$(arg simulation)">
+    <param name="directory" value="$(arg generated_dir)" />
+  </node>
+  <node pkg="uav_board_trials" type="trial_recorder.py" name="trial_recorder" output="screen" if="$(arg simulation)">
     <param name="video_enabled" value="$(arg record_camera_video)" />
     <param name="directory" value="$(arg generated_dir)" />
     <param name="image_topic" value="$(arg image_topic)" />

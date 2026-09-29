@@ -35,7 +35,7 @@
 
 ## 板端运行
 
-先编译本分支两个 workspace，参考 `deployment/BOARD_DEPLOYMENT.md`。每组目录的 `start.sh preview` 检查定位、地图、视觉和录像；`start.sh flight` 启动控制输出，仍由现场执行解锁/OFFBOARD与任务启动。不要把仿真的自动解锁入口带到实机。
+先编译本分支两个 workspace，参考 `deployment/BOARD_DEPLOYMENT.md`。每组目录的 `start.sh preview` 检查定位、地图、视觉和bag录制；`start.sh flight` 启动控制输出，仍由现场执行解锁/OFFBOARD与任务启动。不要把仿真的自动解锁入口带到实机。
 
 ```bash
 bash deployment/board_trials_4x4/01_visual_interrupt/start.sh preview --model /实际路径/model.rknn
@@ -95,3 +95,6 @@ python deployment/board_trials_4x4/common/uav_board_trials/scripts/render_trial_
 ## 2026-09-28 后续：取消panzer特判
 
 八组当前生成配置统一`interrupt_refined_classes: []`。06/08可凭两帧一致的panzer粗线索参与TOP3提前结束；02/07仍完成各自完整环线。低空复核与释放许可不变。本次仅离线验证，之前六组结果不代表取消后的动态验收。完整[策略、逐类退化和增强明细](https://github.com/Qinling-Melon-Farmers/liftrace-visionwork/blob/feat/high-view-search-research/docs/planning/panzer_five_class_20260928/VALIDATION_AND_AUGMENTATION.md)。
+
+
+2026-09-29：板端专项已改为bag-only，不部署独立相机录像/转码/合成脚本；本页SITL录像入口仍为笔记本专用。[部署检查](../../docs/deployment/board_refresh_20260929/README.md)。

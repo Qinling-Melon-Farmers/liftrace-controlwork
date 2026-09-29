@@ -28,7 +28,7 @@ class CorridorConfigTest(unittest.TestCase):
             s=self.filled();s[key]=value
             with self.assertRaises(ValueError):validate_settings(s)
     def test_landing_result_does_not_require_mock_deliveries(self):
-        script=R/'deployment/board_trials_4x4/common/uav_board_trials/scripts/finish_recording.py'
+        script=R/'deployment/board_trials_4x4/common/uav_board_trials/scripts/finish_trial.py'
         for phase,expected in [('COMPLETE','PASS'),('RETURNING','INCOMPLETE')]:
             with tempfile.TemporaryDirectory() as tmp:
                 out=Path(tmp)

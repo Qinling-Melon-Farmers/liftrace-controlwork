@@ -81,16 +81,14 @@ rosservice call /navigation/start_mission "{}"
 
 ## 每次相机与视觉链回看
 
-每次应用运行写入 `logs/board_<专项>_<时间>/`：
+2026-09-29起板端仅以bag保存相机和视觉链，不进行MP4录制或ffmpeg转码。每次应用仍写入`logs/board_<专项>_<时间>/`：
 
-- `camera_raw.mp4`：原始相机内容的640宽、5fps存档；2026-09-28起板端入口另自动录制压缩相机与全链bag。
-- `camera_annotated.mp4`：YOLO橙框、几何精修/地图投影绿框与精修中心，加任务阶段、记忆、像素偏差、释放证据与模拟投递次数。框与图像时间差必须≤30ms，陈旧框不强行画到新图像上。
-- `vision_events.jsonl`：检测类别/置信度、几何/关联/拒绝原因、投影坐标、目标记忆、对准证据、mock调用、落地请求和任务状态。
-- `camera_frames.csv`、`navigation_pose.csv`：源图像/记录时间和任务系轨迹；视频存在丢帧/保持时以CSV为准。
-- `ground_reference.json`、`camera_info.json`、运行YAML、ROS日志：自动高度基准和实际配置。
-- `result.json`、`index.html`：正常收尾生成结果与两个视频索引。失败、中止、预览或缺靶保留为INCOMPLETE，不伪报PASS。若已装ffmpeg，收尾后额外转H.264方便浏览器播放。
+- `flight_debug_*.bag`：压缩相机、CameraInfo、TF、视觉全链、规划/实际轨迹、任务/投递及末端悬停状态。
+- `vision_events.jsonl`、`navigation_pose.csv`：轻量状态与轨迹日志，供结果判断。
+- `ground_reference.json`、`camera_info.json`、运行YAML、ROS日志：自动高度基准及实际配置。
+- `result.json`、`index.html`、`bag_recording.json`：任务结果、bag索引与话题记录检查。录包PASS不等于飞行PASS。
 
-相机缓存最多16帧、录制5fps、OpenCV单线程；默认最长记录15分钟，剩余空间低于512MiB时先正常关闭录像，启动前要求至少2GiB空闲。录像线程不向控制链发布运动指令。板端实际并发帧率/温度仍需现场观察。
+保留LZ4分卷、磁盘预算与正常SIGINT关闭bag；下载至笔记本后用tools/bag_replay生成视频、叠加及多画面。板端不再生成camera_frames.csv、camera_raw.mp4、camera_annotated.mp4。本机SITL录像不受影响。[本次部署检查](../../docs/deployment/board_refresh_20260929/README.md)。
 
 ## 共同终止与验收边界
 

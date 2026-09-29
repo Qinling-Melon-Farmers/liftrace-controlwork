@@ -1,6 +1,6 @@
 # 09_high_speed_capture：高速飞行拍摄
 
-2026-09-29已实现并完成离线测试/构建，尚未部署到飞机、未实飞或新增SITL实跑。本专项只巡航、记录图像和粗记忆，不中断去目标、不重访、不调用模拟或真实舵机。原八组默认0.5m/s保持不变。
+2026-09-29已实现并完成离线测试/构建，9月29日已部署到飞机并完成构建/离线检查，未实飞或新增SITL实跑。本专项只巡航、记录图像和粗记忆，不中断去目标、不重访、不调用模拟或真实舵机。原八组默认0.5m/s保持不变。
 
 ## 航线与继承
 
@@ -35,6 +35,6 @@ bash deployment/board_trials_4x4/09_high_speed_capture/start.sh flight --capture
 
 正常采完并人工落地后结果为`CAPTURED`，仅代表采集航线和结束流程完成，速度/识别验证为`PENDING_OFFLINE`。它不等于高速识别PASS，不要求凑够三类才能结束。原八组结果语义不变。
 
-bag保留压缩图、CameraInfo、全视觉链、位姿/速度、规划、记忆及terminal_hover_status；板端独立MP4仍默认关闭。运行目录`logs/board_high_speed_capture_<时间>/`；在本机用`tools/bag_replay`生成原片、叠加、轨迹和多画面视频，按[试验计划](../../../docs/planning/high_speed_capture_20260929/PLAN.md)只统计有效速度窗口。仿真工具仍只提供原八组4×4场景，本次没有为第09组伪造SITL通过。
+bag保留压缩图、CameraInfo、全视觉链、位姿/速度、规划、记忆及terminal_hover_status；板端独立MP4脚本已移除，视频留本机合成。运行目录`logs/board_high_speed_capture_<时间>/`；在本机用`tools/bag_replay`生成原片、叠加、轨迹和多画面视频，按[试验计划](../../../docs/planning/high_speed_capture_20260929/PLAN.md)只统计有效速度窗口。仿真工具仍只提供原八组4×4场景，本次没有为第09组伪造SITL通过。
 
 [实现检查及阈值本地回放](../../../docs/verification/high_speed_capture_20260929/REPORT.md)

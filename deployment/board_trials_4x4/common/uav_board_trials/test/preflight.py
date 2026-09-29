@@ -38,7 +38,7 @@ for folder in TRIAL_FOLDERS.values():
             assert values['/traj_server/traj_server/require_goal_identity']
             if s['mode'] in HIGH_MODES:assert values['/navigation/mission_manager/high_view_probe/config/staging_xy']==([.8,0.] if s['mode']=='high_speed_capture' else [.6,.05])
             assert not any(n.package in ('gazebo_ros','actuator_pwm') for n in cfg.nodes)
-            assert 'trial_recorder' in nodes and 'target_detector_rknn' in nodes
+            assert 'trial_journal' in nodes and 'trial_recorder' not in nodes and 'target_detector_rknn' in nodes
             metadata=Path(values['/target_detector_rknn/metadata_path'])
             contract=yaml.safe_load(metadata.read_text())
             assert list(contract['names'].values())==['bridge','panzer','pillbox','tent','red_cross']

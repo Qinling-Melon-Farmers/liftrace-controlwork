@@ -42,7 +42,7 @@ def main():
     rospy.init_node('board_trial_supervisor',disable_signals=True)
     if rospy.get_param('/use_sim_time',False):raise RuntimeError('Board trials refuse /use_sim_time=true; do not run against laptop SITL')
     existing=set(rosnode.get_node_names())
-    conflicts=existing.intersection({'/laserMapping','/freedom','/patrol_control','/fast_planner_node','/navigation_frame_adapter','/navigation/mission_manager','/target_detector_rknn','/target_detector','/detection_fusion','/target_refiner','/target_map_projector','/target_memory','/cross_detector','/circle_detector','/landing_detector','/drop_aligner','/navigation/planner_bridge','/release_permission_arbiter','/guarded_servo_proxy','/trial_auto_land','/board_mock_servo','/trial_recorder','/map_camera_alignment','/board_trial_bag'})
+    conflicts=existing.intersection({'/laserMapping','/freedom','/patrol_control','/fast_planner_node','/navigation_frame_adapter','/navigation/mission_manager','/target_detector_rknn','/target_detector','/detection_fusion','/target_refiner','/target_map_projector','/target_memory','/cross_detector','/circle_detector','/landing_detector','/drop_aligner','/navigation/planner_bridge','/release_permission_arbiter','/guarded_servo_proxy','/trial_auto_land','/board_mock_servo','/trial_recorder','/trial_journal','/map_camera_alignment','/board_trial_bag'})
     if conflicts:raise RuntimeError('Stop the old application first: '+','.join(sorted(conflicts)))
     if '/mavros' not in existing:raise RuntimeError('Start device MAVROS and driver2 first')
     model=a.model or Path(os.environ.get('UAV_VISION_RKNN_MODEL_PATH',str(a.root/'runtime_models/flight_5cls_20260928_fp16.rknn')))
@@ -246,5 +246,5 @@ def main():
         s=state[0];e=extended[0]
         (out/'supervisor_result.json').write_text(json.dumps(dict(end_reason=end_reason,ever_armed=ever_armed[0],ever_airborne=ever_airborne[0],armed=s.armed if s else None,mode=s.mode if s else None,landed_state=e.landed_state if e else None,trial=a.trial,actuator_mode=settings['actuator_mode']),indent=2))
         print('Trial application stopped; device MAVROS/driver2 left running. Logs:',out,flush=True)
-        subprocess.run([os.environ.get('BOARD_PYTHON','/usr/bin/python3'),str(Path(__file__).with_name('finish_recording.py')),str(out)],check=False)
+        subprocess.run([os.environ.get('BOARD_PYTHON','/usr/bin/python3'),str(Path(__file__).with_name('finish_trial.py')),str(out)],check=False)
 if __name__=='__main__':main()

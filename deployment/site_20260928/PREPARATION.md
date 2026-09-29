@@ -1,10 +1,12 @@
 # 2026-09-28 现场五组渐进试飞准备
 
+2026-09-29当前：[部署更新与bag-only说明](../../docs/deployment/board_refresh_20260929/README.md)。现场后续覆盖档为2m高位、30cm末端悬停、障碍柱关闭；下列9月28日初始准备参数保留为历史。
+
 **当晚更新：用户选择实际舵机投递。以下现场快捷入口的1/2/4/5组flight已选择实投，3组无投递；详见文末。**
 
 已按用户确认采用前方6m、左右±1.5m。使用本页入口时，低空直线、高位环线、任务目标范围、重访网格、规划搜索边界同步调整；没有只改航点而遗留旧4×4限制。原始八组仍保留4×4默认。
 
-板端目录：`/home/orangepi/liftrace_board_trials_20260928`，SSH：`orangepi@192.168.156.193`。这次只准备01、05、07、02、06，不运行H降落、走廊降落和三投接走廊/H。
+板端目录：`/home/orangepi/liftrace_board_trials_20260928`，SSH：`orangepi@192.168.43.59`。这次只准备01、05、07、02、06，不运行H降落、走廊降落和三投接走廊/H。
 
 ## 五组顺序
 
@@ -65,11 +67,11 @@ rosservice call /navigation/start_mission "{}"
 
 preview/flight均生成 `logs/board_<专项>_<时间>/`：
 
-- 原有camera_raw.mp4、camera_annotated.mp4、事件JSONL、轨迹CSV与网页索引继续保留。
+- 2026-09-29起相机仅录bag；保留轻量事件JSONL、轨迹CSV、任务结果和bag网页索引，板端移除独立MP4录制/转码。
 - 新增flight_debug_*.bag：原分辨率压缩相机与CameraInfo、TF、定位、实际/规划/设定点轨迹、候选/精修/投影/记忆、任务状态、对准/许可/释放，以及FreeDOM/膨胀地图。不录原始Livox或未压缩大图。
 - run_metadata.json及bag话题/board_trials/run_metadata保存专项、参数、部署revision、模型路径/大小/metadata、外参与地面参考；camera_info.json保存实际输入内参。
 - bag_topics.json记录话题，bag_recording.json记录关闭状态、各话题条数和缺失项。其PASS仅表示录包基础检查通过，不表示任务通过。
-- LZ4、512MiB分卷、128MiB缓冲，至少保留2GiB空闲；900秒或存储预算耗尽时只关闭录包并报告，不切换飞行模式。MP4仍为5fps轻量存档，bag保留相机实际发布帧。
+- LZ4、512MiB分卷、128MiB缓冲，至少保留2GiB空闲；900秒或存储预算耗尽时只关闭录包并报告，不切换飞行模式。bag保留相机实际发布帧，板端不编码MP4。
 - 收尾先让应用退出，再SIGINT正常关闭bag并检查索引；还有.bag.active时不要直接断电。入口要求压缩图新鲜，避免录包没有相机。
 
 bag可交给现成tools/bag_replay工作流生成原相机、叠加、航迹动画和多画面报告。数据缺失保留INCOMPLETE，不补造候选或成功状态。
@@ -106,4 +108,4 @@ bag可交给现成tools/bag_replay工作流生成原相机、叠加、航迹动�
 
 ## 2026-09-29 新增第六项：高速采集
 
-原五组次序不改；capture/6追加为只拍摄不投递专项，前6m/左右1.5m、2m高位、0.5与1m/s对照、30cm悬停结束。完整操作见[第09组](../board_trials_4x4/09_high_speed_capture/README.md)。该入口刚完成离线检查与构建，尚未部署实机。
+原五组次序不改；capture/6追加为只拍摄不投递专项，前6m/左右1.5m、2m高位、0.5与1m/s对照、30cm悬停结束。完整操作见[第09组](../board_trials_4x4/09_high_speed_capture/README.md)。该入口已于9月29日部署并通过板端构建/离线入口检查，尚未实飞。
