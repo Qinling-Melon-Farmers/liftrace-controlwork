@@ -1,4 +1,6 @@
 import unittest
+import subprocess,sys,tempfile
+from pathlib import Path
 from unittest.mock import patch
 from types import SimpleNamespace as N
 import threading
@@ -15,6 +17,13 @@ class TerminalTests(unittest.TestCase):
         n.active=False;n.cancelled=False;n.since=None;n.setpoint=None;n.previous=10.
         n.outputs=[];n.pub=N(publish=n.outputs.append);n.status_pub=N(publish=lambda m:None)
         return n
+    def test_catkin_relay_does_not_import_sibling_relay(self):
+        source=Path(__file__).resolve().parents[1]/'scripts/trial_terminal_hover.py'
+        with tempfile.TemporaryDirectory() as directory:
+            shadow=Path(directory)
+            (shadow/'trial_auto_land.py').write_text('# catkin relay does not export helpers\n')
+            code="import sys;sys.path.insert(0,"+repr(directory)+");p="+repr(str(source))+";exec(compile(open(p).read(),p,'exec'),{'__file__':p,'__name__':'relay_smoke'})"
+            subprocess.run([sys.executable,'-c',code],cwd=directory,check=True,capture_output=True,text=True)
     def test_ramp_cannot_overshoot_or_jump_after_pause(self):
         self.assertEqual(descend(.081,.08,.15,.1),.08)
         self.assertAlmostEqual(descend(1.,.08,.15,20.),.9775)

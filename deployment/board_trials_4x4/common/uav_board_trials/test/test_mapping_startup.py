@@ -1,6 +1,6 @@
 import math
 import unittest
-from mapping_startup import PoseAgreement, MapWarmup, VisionReadiness
+from mapping_startup import PoseAgreement, MapWarmup, VisionReadiness, startup_transport_pending
 
 C = dict(pose_max_age=.3, pair_max_skew=.1, position_tolerance=.2,
          yaw_tolerance_deg=5., stable_seconds=2., map_max_age=1.5,
@@ -89,6 +89,24 @@ class StartupTests(unittest.TestCase):
         self.assertFalse(w.ready(14.))
         for t in (15.,16.,17.):w.observe(t,t,True)
         self.assertTrue(w.ready(17.))
+
+class StartupTransportTests(unittest.TestCase):
+    def test_launch_gap_waits_but_does_not_reuse_old_stability(self):
+        g=PoseAgreement(C)
+        g.update([pose(1.)],[pose(1.)],1.,True)
+        self.assertTrue(g.update([pose(3.)],[pose(3.)],3.,True)[0])
+        ready,info=g.update([pose(3.)],[pose(3.)],3.4,True)
+        self.assertFalse(ready);self.assertTrue(startup_transport_pending(info))
+        for t in (3.5,4.,5.):
+            ready,info=g.update([pose(t)],[pose(t)],t,True)
+            self.assertFalse(ready);self.assertTrue(startup_transport_pending(info))
+        self.assertTrue(g.update([pose(5.6)],[pose(5.6)],5.6,True)[0])
+    def test_future_and_geometry_mismatch_still_require_stop(self):
+        for fc,lio,now,disarmed in [([pose(2.)],[pose(2.)],1.,True),([pose(1.)],[pose(1.,x=.3)],1.,True),([pose(1.)],[pose(1.,yaw=math.pi)],1.,True),([pose(1.)],[pose(1.)],1.,False)]:
+            ready,info=PoseAgreement(C).update(fc,lio,now,disarmed)
+            self.assertFalse(ready);self.assertFalse(startup_transport_pending(info))
+        self.assertFalse(startup_transport_pending(dict(reason='clock_reset')))
+        self.assertFalse(startup_transport_pending(dict(reason='pose_stale_or_future')))
 
 class VisionTests(unittest.TestCase):
     def test_yolo_alone_or_one_startup_array_cannot_admit(self):

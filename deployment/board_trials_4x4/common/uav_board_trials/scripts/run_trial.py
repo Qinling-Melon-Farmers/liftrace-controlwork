@@ -10,7 +10,7 @@ from mavros_msgs.msg import State,ExtendedState
 from std_msgs.msg import String
 from trial_config import generate,validate_settings,TRIAL_FOLDERS,NO_DROP_MODES,mapping_profile
 from trial_bag import TrialBag
-from mapping_startup import PoseAgreement,MapWarmup,VisionReadiness
+from mapping_startup import PoseAgreement,MapWarmup,VisionReadiness,startup_transport_pending
 from uav_vision.msg import TargetDetectionArray,TargetCandidateArray
 
 def main():
@@ -121,17 +121,22 @@ def main():
                     msg.header.frame_id==startup['frame'] and msg.width*msg.height>0 and bool(msg.data))
         cloud_sub=rospy.Subscriber(startup['cloud_topic'],PointCloud2,cloud,queue_size=1)
         mapper=launch('mapping',['mapping_profile:='+mapping_profile(settings),'map_frame:='+startup['frame']])
-        def check_mapping_alignment():
+        def check_mapping_alignment(allow_pending=False):
             with lock:
                 s=state[0]
                 ready,detail=agreement.update(list(samples),list(lio_samples),rospy.Time.now().to_sec(),
                     s is not None and s.connected and not s.armed and time.monotonic()-state_rx[0]<=float(startup['state_max_age']))
-            if not ready:raise RuntimeError('Mapping initialization lost agreement; stop and rerun from empty map: '+json.dumps(detail))
+            if not ready:
+                if allow_pending and startup_transport_pending(detail):
+                    rospy.logwarn_throttle(2.,'Startup waiting for fresh stable pose: %s',json.dumps(detail))
+                    return False
+                raise RuntimeError('Mapping initialization lost agreement; stop and rerun from empty map: '+json.dumps(detail))
+            return True
         until=time.monotonic()+float(startup['map_timeout'])
         while time.monotonic()<until:
             if any(child.poll() is not None for child in children):raise RuntimeError('Localization/mapping launch exited before map readiness')
-            check_mapping_alignment()
-            if warmup.ready(rospy.Time.now().to_sec()):break
+            aligned=check_mapping_alignment(allow_pending=True)
+            if aligned and warmup.ready(rospy.Time.now().to_sec()):break
             time.sleep(.1)
         else:raise RuntimeError('No fresh nonempty FreeDOM map after localization convergence; inspect mapping.log')
         run_metadata['mapping_startup_result']=dict(mapping_started=mapping_start,
@@ -160,9 +165,12 @@ def main():
         control_rx=[-1e9]
         control_ready_sub=rospy.Subscriber('/navigation/setpoint_mission',PoseStamped,lambda msg:control_rx.__setitem__(0,time.monotonic()),queue_size=1)
         ready_until=time.monotonic()+60
-        while not (not vision_ready.missing(rospy.Time.now().to_sec()) and (a.mode=='preview' or time.monotonic()-control_rx[0]<.5)) and time.monotonic()<ready_until:
+        while time.monotonic()<ready_until:
             if any(child.poll() is not None for child in children):raise RuntimeError('Application failed before model readiness')
-            check_mapping_alignment()
+            aligned=check_mapping_alignment(allow_pending=True)
+            if (aligned and not vision_ready.missing(rospy.Time.now().to_sec())
+                    and (a.mode=='preview' or time.monotonic()-control_rx[0]<.5)
+                    and warmup.ready(rospy.Time.now().to_sec())):break
             time.sleep(.1)
         # Keep readiness subscriptions alive: unregister may block long enough
         # to make the already-live control timestamp stale before its check.

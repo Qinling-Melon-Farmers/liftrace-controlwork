@@ -1,11 +1,15 @@
 #!/usr/bin/env python3
 """Site-only single setpoint outlet: terminal vertical descent and manual landing."""
-import copy,json,math,threading
+import copy,json,math,threading,sys
+from pathlib import Path
 import rospy
 from geometry_msgs.msg import PoseStamped
 from nav_msgs.msg import Odometry
 from mavros_msgs.msg import State
 from std_msgs.msg import String
+# Catkin relays execute source in a private namespace and cannot be imported
+# as helper modules. Resolve the sibling source before the devel/bin relay.
+sys.path.insert(0,str(Path(__file__).resolve().parent))
 from trial_auto_land import trial_ready,settled
 
 def descend(z,target,speed,dt):
@@ -76,12 +80,6 @@ class TerminalHover:
                 dt=now-self.previous;self.previous=now
                 if fresh and s.connected and 0<=now-self.state_at<=2.:
                     self.setpoint.pose.position.z=descend(self.setpoint.pose.position.z,self.target,self.speed,dt)
-                output=copy.deepcopy(self.setpoint)
-            elif self.cancelled and self.setpoint is not None:
-                output=copy.deepcopy(self.setpoint)
-            elif self.cancelled and self.setpoint is not None:
-                output=copy.deepcopy(self.setpoint)
-            elif self.cancelled and self.setpoint is not None:
                 output=copy.deepcopy(self.setpoint)
             elif self.cancelled and self.setpoint is not None:
                 output=copy.deepcopy(self.setpoint)

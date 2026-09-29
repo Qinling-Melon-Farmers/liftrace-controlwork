@@ -40,6 +40,8 @@ class PoseAgreement:
             else:
                 b = lio[-1]
                 a = min(fc, key=lambda v: abs(v[4] - b[4]))
+            info = dict(latest_age_sec=[now-v[4] for v in latest],
+                        paired_age_sec=[now-v[4] for v in (a,b)])
             if not all(math.isfinite(v) for v in (*a, *b)):
                 reason = 'pose_nonfinite'
             elif not all(v[4] > 0 and 0 <= now-v[4] <= self.age for v in (*latest, a, b)):
@@ -49,7 +51,7 @@ class PoseAgreement:
             else:
                 distance = math.dist(a[:3], b[:3])
                 yaw = abs(math.atan2(math.sin(a[3]-b[3]), math.cos(a[3]-b[3])))
-                info = dict(position_delta_m=distance, yaw_delta_deg=math.degrees(yaw))
+                info.update(position_delta_m=distance, yaw_delta_deg=math.degrees(yaw))
                 if distance > self.position or yaw > self.yaw:
                     reason = 'fc_lio_disagreement'
         self.last_now = now
@@ -109,3 +111,12 @@ class VisionReadiness:
     def missing(self, now):
         return [topic for topic, (stamp, count) in self.streams.items()
                 if stamp is None or count < 2 or not 0 <= now-stamp <= self.age]
+
+
+def startup_transport_pending(detail):
+    """Wait within the existing startup deadline, never grant READY from a gap."""
+    reason=detail.get('reason')
+    if reason=='settling':return True
+    if reason not in ('pose_stale_or_future','pose_stamp_skew'):return False
+    ages=detail.get('latest_age_sec',[])+detail.get('paired_age_sec',[])
+    return len(ages)==4 and all(math.isfinite(v) and v>=0 for v in ages)
