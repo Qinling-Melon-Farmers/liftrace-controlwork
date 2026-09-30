@@ -46,7 +46,9 @@ class BoardManager(base.NavigationMissionManager):
         runtime_class={'high_view':FullCircleRuntime,'high_priority':PriorityRevisitRuntime,'memory_only':MemoryOnlyRuntime,'high_view_full':FullMissionTrialRuntime,'high_speed_capture':HighSpeedCaptureRuntime}[self.mode]
         runtime=runtime_class(ordinary.core,ProbeConfig(**cfg),SurveyPolicy(**dict(rospy.get_param('~high_view_full/policy'))),
             fallback_route=ordinary.route if self.mode=='high_view_full' else None,boundary_policy=BoundaryRevisit(**dict(rospy.get_param('~high_view_full/boundary_policy'))))
-        runtime.grid=(GridCost if self.mode=='high_view_full' else OpenTourGrid)(**dict(rospy.get_param('~high_view_full/grid')));return runtime
+        runtime.grid=(GridCost if self.mode=='high_view_full' else OpenTourGrid)(**dict(rospy.get_param('~high_view_full/grid')))
+        runtime.descent_grid=GridCost(**dict(rospy.get_param("~high_view_full/grid")))
+        return runtime
     def _on_navigation_hints(self,message):
         if message.source!='coarse_navigation_projector':return
         with self._lock:
@@ -82,6 +84,21 @@ class BoardManager(base.NavigationMissionManager):
                 dtype=np.dtype(dict(names=['x','y','z'],formats=[('>' if msg.is_bigendian else '<')+'f4']*3,offsets=[fields[k].offset for k in ('x','y','z')],itemsize=msg.point_step))
                 array=np.ndarray((msg.height,msg.width),dtype=dtype,buffer=msg.data,strides=(msg.row_step,msg.point_step));xyz=np.column_stack([array[k].ravel() for k in ('x','y','z')])
                 ground=self._runtime.probe_config.ground_z;self._runtime.grid.update(xyz,msg.header.stamp.to_sec(),ground+.4,ground+3.)
+                # Separate swept vertical volume from the broad 2-D tour cost map.
+                if self._runtime.pose is None:
+                    self._runtime.descent_grid.stamp=None
+                    return
+                if self._runtime.pose is None:
+                    self._runtime.descent_grid.stamp=None
+                    return
+                cfg=self._runtime.probe_config
+                low=ground+cfg.low_agl
+                high=max(ground+cfg.high_agl,self._runtime.pose[2])
+                below=float(rospy.get_param('~high_view_full/descent_margin_below_m',0.10))
+                above=float(rospy.get_param('~high_view_full/descent_margin_above_m',0.20))
+                if not np.isfinite([below,above]).all() or min(below,above)<0:raise ValueError('descent margins')
+                self._runtime.descent_grid.update(xyz,msg.header.stamp.to_sec(),min(low,self._runtime.pose[2])-below,high+above)
+
             except Exception as e:self._handle_callback_exception('cost_map',e)
     def _publish_status(self,force=False):
         super()._publish_status(force)
