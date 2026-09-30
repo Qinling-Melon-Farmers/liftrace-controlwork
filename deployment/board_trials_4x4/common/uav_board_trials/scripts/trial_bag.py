@@ -5,7 +5,7 @@ from pathlib import Path
 def topics_for(settings):
     camera=settings.get("compressed_image_topic",settings.get("image_topic","/camera/image_raw")+"/compressed")
     info=settings.get("camera_info_topic","/camera/camera_info")
-    return list(dict.fromkeys([camera,info,
+    topics = list(dict.fromkeys([camera,info,
         "/tf","/tf_static","/rosout_agg","/Odometry","/mavros/vision_pose/pose",
         "/mavros/local_position/pose","/mavros/local_position/odom",
         "/mavros/local_position/velocity_local","/mavros/state","/mavros/extended_state",
@@ -24,6 +24,12 @@ def topics_for(settings):
         "/mission/release_result","/uav_high_view/probe_status",
         "/board_trials/run_metadata","/board_trials/mock_release","/board_trials/landing_context","/board_trials/auto_land_status","/board_trials/terminal_hover_status",
         "/freedom/static_pointcloud","/sdf_map/occupancy","/sdf_map/occupancy_inflate"]))
+    # Full accumulated clouds dominate storage. Enable explicitly for mapping diagnostics.
+    if not settings.get("record_map_clouds", False):
+        topics = [t for t in topics if t not in (
+            "/freedom/static_pointcloud", "/sdf_map/occupancy", "/sdf_map/occupancy_inflate")]
+    return topics
+
 
 def summarize(directory,required):
     import rosbag
