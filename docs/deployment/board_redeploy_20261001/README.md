@@ -62,3 +62,7 @@ hardware_ws/src/actuator_pwm链接到仓库的 `deployment/onboard_obstacle_refe
 ## 下一步
 
 接好雷达、飞控、相机后，核对雷达网口及192.168.1.100主机地址、192.168.1.175雷达地址与真实设备一致；检查实时位姿、相机图像和初始化稳定，再由现场授权启动试飞。板端验证日志在deployment_results/。本轮没有产生飞行bag。
+
+## 今日H专项操作补充
+
+见[操作手册H专项章节](../flight_handover_20261001/OPERATIONS.md#今日h识别降落专项目录03不是现场第三组memory)。使用h_landing_test_area.yaml，1.0m稳定后手动启动任务；H链最终请求AUTO.LAND，不能套用其他组30cm悬停说明。无需舵机。
