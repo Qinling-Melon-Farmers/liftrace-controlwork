@@ -23,3 +23,13 @@
 
 ## 待现场验证
 实际复位与三槽释放、电源供电、拔除/权限失败时服务拒绝（地面无载情况下安排）。本轮不声称已完成物理投递验收。
+
+## 地面许可链实测
+用户明确授权真实机构测试，飞机静止未解锁。先读取飞控armed=false，发现旧pwm_controller与servo_controller1两个驱动同时存在，停止两者后启动新驱动，依次复位三槽。
+使用工程guarded_servo_proxy，隔离许可/result/公开服务话题，raw仍为/legacy/Servo_raw；注入明确标注为地面模拟的ReleasePermission，不伪造飞控解锁或修改飞行话题。
+- 无许可：permission_missing，False。
+- 槽1/2/3有效许可：均raw_actuator_ack，True。
+- 每槽再次调用：payload_slot_already_used，False。
+- 测试结束驱动与代理均停止，三个PWM enable均0，通道仍导出；读回脉宽分别1700000/2100000/2100000ns。
+结果已拉回logs/ground_servo_check_20261001/results.json及final_pwm_state.txt。
+此测试验证许可代理到真实PWM链，不覆盖视觉证据生成和仲裁器生成许可的过程；物理舱门动作待现场反馈。未解锁/起飞。再次试飞前须重新准备载荷和启动单一舵机服务。
