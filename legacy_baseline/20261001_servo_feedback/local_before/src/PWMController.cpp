@@ -2,7 +2,6 @@
 #include <unistd.h>
 #include <cstdlib>
 #include <stdexcept>
-#include <iostream>
 
 PWMController::PWMController(int chip, int channel, const std::string& expectedDevice) :
     basePath_("/sys/class/pwm/pwmchip" + std::to_string(chip)),
@@ -16,13 +15,14 @@ PWMController::PWMController(int chip, int channel, const std::string& expectedD
         if (actual.find("/" + expectedDevice + "/") == std::string::npos)
             throw std::runtime_error("PWM address mismatch: " + basePath_ + " expected " + expectedDevice);
     }
-    // Channels and permissions belong to init_pwm.sh, not this process.
-    if (access((pwmPath_ + "/enable").c_str(), W_OK) != 0)
-        throw std::runtime_error("PWM not initialized/writable: " + pwmPath_ + "; run init_pwm.sh");
+    // 导出PWM通道
+    writeSysfs(basePath_ + "/export", std::to_string(channel));
+    usleep(500000); // 等待设备创建
 }
 
 PWMController::~PWMController() {
-    disable();  // Keep exported channels and permissions across service restarts.
+    disable();
+    writeSysfs(basePath_ + "/unexport", std::to_string(0));
 }
 
 bool PWMController::setPeriod(unsigned int period_ns) {
@@ -47,22 +47,8 @@ bool PWMController::disable() {
 
 bool PWMController::writeSysfs(const std::string& file, const std::string& value) {
     std::ofstream fs(file);
-    if (!fs.is_open()) {
-        std::cerr << "PWM open failed: " << file << std::endl;
-        return false;
-    }
+    if (!fs.is_open()) return false;
     fs << value;
     fs.flush();
-    if (!fs.good()) {
-        std::cerr << "PWM write failed: " << file << std::endl;
-        return false;
-    }
-    fs.close();
-    std::ifstream input(file);
-    std::string actual;
-    if (!(input >> actual) || actual != value) {
-        std::cerr << "PWM readback mismatch: " << file << std::endl;
-        return false;
-    }
-    return true;
+    return fs.good();
 }

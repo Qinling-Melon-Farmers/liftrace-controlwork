@@ -1,14 +1,14 @@
 #!/bin/bash
 set -euo pipefail
 [[ $EUID -eq 0 ]] || { echo 'Run: sudo bash init_pwm.sh'; exit 1; }
-# Orange Pi 5 Plus: rear=Pin16, right=Pin18, left=Pin7.
+# rear=Pin11 (confirm wiring), right=Pin7, left=Pin16.
 # Check all addresses before making any writes.
-for spec in '2 febf0000.pwm' '3 febf0010.pwm' '4 febf0020.pwm'; do
+for spec in '4 febf0020.pwm' '5 febf0030.pwm' '0 fd8b0010.pwm'; do
     read -r chip device <<< "$spec"
     actual=$(readlink -f "/sys/class/pwm/pwmchip$chip")
     [[ "$actual" == *"/$device/"* ]] || { echo "PWM address mismatch: chip$chip expected $device"; exit 2; }
 done
-for chip in 2 3 4; do
+for chip in 4 5 0; do
     base=/sys/class/pwm/pwmchip$chip
     [[ -d "$base/pwm0" ]] || echo 0 > "$base/export"
     p=$base/pwm0
