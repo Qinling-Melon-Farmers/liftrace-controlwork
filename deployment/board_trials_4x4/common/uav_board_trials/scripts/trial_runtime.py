@@ -14,21 +14,37 @@ def landing_here(runtime,xy):
         post_delivery_route=(GoalSnapshot(cfg.mission_frame,*xy,cfg.return_altitude),))
 
 class LocalLandingMixin:
+    # Runtimes that must fly back to the original takeoff point before descending
+    # set this True; the default keeps the legacy "land in place" trial ending.
+    return_to_takeoff_before_land=False
+    def _local_landing_xy(self):
+        """Local LAND anchor: the takeoff column when the trial asks to return."""
+        if self.return_to_takeoff_before_land:
+            return tuple(self.home)
+        return self._current_xy
     def apply_result(self,event,now,current_xy):
         active=self.core.active_action
         if active and active.command=='APPROACH' and event.decision_seq==active.decision_seq:
-            landing_here(self,current_xy)
+            landing_here(self,self._local_landing_xy() if self.return_to_takeoff_before_land else current_xy)
         result=super().apply_result(event,now,current_xy)
         expected=len(self.trial_manifest or {}) if hasattr(self,'trial_manifest') else getattr(self,'delivery_count',1)
         if (result.accepted and event.status=='SUCCEEDED' and event.stage=='RECOVERY' and expected>0 and self.core.committed_slots>=expected and result.action is not None and result.action.command=='RETURN_HOME'):
+            if self.return_to_takeoff_before_land:
+                # Keep the return transit: fly to the takeoff anchor first, then the
+                # mission core issues LAND there and the terminal 30cm hover
+                # (trial_terminal_hover) waits for the manual landing.
+                return result
             # Replace an as-yet unpublished competition return with the local test LAND.
             self.core.active_action=None
             return self.end_here(now,'board_mock_deliveries_complete')
         return result
     def end_here(self,now,reason):
-        landing_here(self,self._current_xy)
-        self.core.phase=MissionPhase.LAND
-        action=self.core._new_action('LAND',reason,now,timeout=self.core.config.mission_timeout)
+        landing_here(self,self._local_landing_xy())
+        if self.return_to_takeoff_before_land:
+            action=self.core._return_action(reason,now)
+        else:
+            self.core.phase=MissionPhase.LAND
+            action=self.core._new_action('LAND',reason,now,timeout=self.core.config.mission_timeout)
         if hasattr(self,'stage'):self.stage='TAIL'
         return self._outcome(True,reason,action)
 
@@ -114,6 +130,9 @@ class MultiDeliveryRuntime(LocalLandingMixin,MissionRuntime):
 
 class PriorityRevisitRuntime(FullCircleRuntime):
     """Production early exit/recovery policy, with a local trial endpoint."""
+    # Group 5: finish by returning to the original takeoff point, descend to the
+    # 30cm terminal hover there and wait for the pilot to land manually.
+    return_to_takeoff_before_land=True
     def _consider_search_replacement(self,now):
         return HighViewFull._consider_search_replacement(self,now)
     def _finish_route(self,action,succeeded,now):
