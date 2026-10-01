@@ -12,7 +12,7 @@
 | 2 | MAVROS | 与飞控通信 |
 | 3 | MID360驱动 | 雷达数据 |
 | 4 | 相机 | 下视图像 |
-| 5 | 舵机服务 | 提供真实释放接口，不因启动服务就释放 |
+| 5 | 舵机服务 | 提供真实释放接口；当前现场版本启动会依次复位三只舵机 |
 | 6 | 专项flight入口 | 定位、地图、视觉、规划、任务、控制及bag |
 | 7（建议） | 状态监测 | READY、飞控模式、任务进度 |
 
@@ -59,7 +59,15 @@ roslaunch uav_mission mid360_driver2.launch \
 bash deployment/board_trials_4x4/start_camera.sh /dev/video0
 ```
 
-终端5（实际投递组需要）：
+终端5（实际投递组需要，H专项跳过）：
+
+10月1日现场更新的驱动启动时会依次复位三只舵机，须先确认机构/载荷和人员位置允许动作。重启后先核对PWM芯片2/3/4分别对应febf0000/0010/0020，然后运行现场初始化脚本（导出、周期、权限、极性；不使能输出）：
+
+```bash
+sudo bash /home/orangepi/liftrace_deploy/liftrace-visionwork/init_pwm.sh
+```
+
+再启动服务：
 
 ```bash
 /home/orangepi/liftrace_board_trials_20260928/hardware_ws/devel/lib/actuator_pwm/pwm_node1 \
@@ -192,3 +200,6 @@ H是几何检测链，不是五分类YOLO新增的第六类。预览/普通搜�
 ## 远端同步状态（10月1日直查）
 
 视觉高位研究 `feat/high-view-search-research`：bc74a32；导航接替开发 `feat/high-view-liveness-20260919`：5d3f803（origin与fork均已推）。公共修复包含轨迹先于航点的交接竞态、下降净空接线；现场限高限速不覆盖研究配置。九组完整部署和本手册维护在视觉板端分支及导航“板端参考分支”。试飞组“板载代码”分支未被改写。
+
+
+最新设备检查见[硬件检查记录](../board_redeploy_20261001/HARDWARE_CHECK.md)，包括雷达临时地址、现场舵机差异及尚未验证项。

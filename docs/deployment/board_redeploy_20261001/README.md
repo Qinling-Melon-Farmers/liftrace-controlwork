@@ -66,3 +66,7 @@ hardware_ws/src/actuator_pwm链接到仓库的 `deployment/onboard_obstacle_refe
 ## 今日H专项操作补充
 
 见[操作手册H专项章节](../flight_handover_20261001/OPERATIONS.md#今日h识别降落专项目录03不是现场第三组memory)。使用h_landing_test_area.yaml，1.0m稳定后手动启动任务；H链最终请求AUTO.LAND，不能套用其他组30cm悬停说明。无需舵机。
+
+## 实时整机检查
+
+见[10月1日硬件检查](HARDWARE_CHECK.md)。设备已接线，预览链到READY；雷达临时地址已修正。现场舵机源码已更新，服务启动会复位，尚未进行机构动作测试。
