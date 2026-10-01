@@ -42,7 +42,10 @@ class SiteArea(unittest.TestCase):
         spec=importlib.util.spec_from_file_location("replay",ROOT/"tools/bag_replay/bag_replay.py")
         replay=importlib.util.module_from_spec(spec);spec.loader.exec_module(replay)
         topics=topics_for({})
-        self.assertFalse(set(replay.TOPICS.values())-set(topics))
+        optional_clouds={"/sdf_map/occupancy_inflate","/sdf_map/occupancy","/freedom/static_pointcloud"}
+        self.assertFalse(set(replay.TOPICS.values())-set(topics)-optional_clouds)
+        self.assertFalse(optional_clouds.intersection(topics))
+        self.assertTrue(optional_clouds.issubset(topics_for({"record_map_clouds":True})))
         self.assertIn("/planning/progress",topics)
         self.assertIn("/uav_vision/release_evidence_context",topics)
         self.assertNotIn("/camera/image_raw",topics)

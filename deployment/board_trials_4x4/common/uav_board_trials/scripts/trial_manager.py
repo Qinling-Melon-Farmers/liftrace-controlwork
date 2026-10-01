@@ -88,9 +88,6 @@ class BoardManager(base.NavigationMissionManager):
                 if self._runtime.pose is None:
                     self._runtime.descent_grid.stamp=None
                     return
-                if self._runtime.pose is None:
-                    self._runtime.descent_grid.stamp=None
-                    return
                 cfg=self._runtime.probe_config
                 low=ground+cfg.low_agl
                 high=max(ground+cfg.high_agl,self._runtime.pose[2])
