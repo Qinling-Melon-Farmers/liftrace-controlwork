@@ -79,6 +79,8 @@ class Workbench(object):
         self.probe_state = {"uploaded": False, "detail": "未部署"}
         self.clients = []
         self.lock = threading.RLock()
+        self.trial_lock = threading.RLock()
+        self.mission_start_attempted = False
         self._probe_buffer = ""
         self._last_telemetry_broadcast = 0.0
         self._profile = wb_board.load_profile()
@@ -126,6 +128,10 @@ class Workbench(object):
     def _on_state(self, sid, snapshot):
         self.broadcast({"t": "session", "s": sid, "session": snapshot})
         if snapshot.get("state") in ("exited", "failed") and sid == "trial":
+            if snapshot.get("state") == "failed":
+                self._emit_event(self.stage.set_stage("FAILED", {"exit_code": snapshot.get("exit_code")}))
+            elif self.stage.name not in ("STOPPED", "FAILED"):
+                self._emit_event(self.stage.set_stage("STOPPED", {"exit_code": snapshot.get("exit_code")}))
             self.stage.note_action("专项入口会话结束（exit=%s）" % snapshot.get("exit_code"),
                                    "warn" if snapshot.get("state") == "failed" else "info")
             self.broadcast({"t": "stage", "stage": self.stage.snapshot()})
@@ -280,6 +286,16 @@ class Workbench(object):
 
     def update_config(self, body):
         connection = self.config["connection"]
+        changed = any(body.get(k) not in (None, "", connection.get(k))
+                      for k in ("host", "port", "board_root", "site_dir", "env_script", "model", "metadata"))
+        if changed and (self.orchestration.get("running") or any(
+                s.state in ("running", "starting") for s in self.sessions.sessions.values())):
+            raise ValueError("会话仍在运行；请落地、收尾并断开后再修改板端地址或工程参数")
+        if changed:
+            self.telemetry = {}
+            self.board_state = {"logs": [], "preflight": None}
+            self.stage.reset()
+            self.connection.update(state="unknown", detail="连接参数已修改，请重新连接")
         for key in ("host", "board_root", "site_dir", "env_script", "model", "metadata"):
             if body.get(key):
                 connection[key] = body[key]
@@ -394,8 +410,6 @@ class Workbench(object):
             leftovers = preflight.get("leftovers") or {}
             if self.target.transport == "ssh":
                 self.ensure_probe()
-                self._wait_for(lambda: bool(self.telemetry.get("master")), 20.0,
-                               "等待板端探针读到 ROS master")
             publish()
             for terminal in terminals:
                 if self.orchestration.get("cancel"):
@@ -404,7 +418,13 @@ class Workbench(object):
                 step["state"] = "running"
                 self.orchestration["step"] = terminal["id"]
                 publish()
-                running = any(leftovers.get(key) for key in RUNNING_KEYS.get(terminal["id"], ()))
+                existing = self.sessions.get(terminal["id"])
+                running = (existing is not None and existing.state in ("running", "starting"))
+                running = running or any(leftovers.get(key) for key in RUNNING_KEYS.get(terminal["id"], ()))
+                if terminal["id"] in ("lidar", "camera", "servo"):
+                    spec = terminal.get("ready") or {}
+                    running = running or (self.telemetry.get("at", 0) >= time.time() - 5
+                                          and wb_status.ready_check(spec.get("kind"), spec, self.telemetry)[0])
                 try:
                     if running:
                         step["detail"] = "板端已有同名进程，跳过重复启动"
@@ -431,6 +451,9 @@ class Workbench(object):
                     self._emit_event(self.stage.note_action(
                         "设备步骤 %s：%s" % (terminal["id"], step["detail"]),
                         "ok" if step["state"] == "ok" else "error"))
+                    if step["state"] == "failed":
+                        self.toast("error", "设备步骤未就绪，已停止后续启动：%s" % terminal["id"])
+                        break
                 except Exception as error:
                     step["state"] = "failed"
                     step["detail"] = str(error)[:300]
@@ -450,7 +473,10 @@ class Workbench(object):
         while time.time() < deadline:
             if self.orchestration.get("cancel"):
                 return False, "已取消"
-            ok, detail = wb_status.ready_check(spec_kind, ready, self.telemetry)
+            if time.time() - self.telemetry.get("at", self.telemetry.get("t", 0)) > 5:
+                ok, detail = False, "等待新鲜板端遥测（探针可能断开）"
+            else:
+                ok, detail = wb_status.ready_check(spec_kind, ready, self.telemetry)
             if detail != last:
                 last = detail
                 step = next((s for s in self.orchestration["steps"]
@@ -488,6 +514,10 @@ class Workbench(object):
 
     # ---------- 任务组 ----------
     def start_trial(self, body):
+        with self.trial_lock:
+            return self._start_trial(body)
+
+    def _start_trial(self, body):
         self._require_command_transport()
         group_id = body.get("group_id")
         group = next((g for g in self.config.get("groups", []) if g["id"] == group_id), None)
@@ -497,10 +527,16 @@ class Workbench(object):
         real_release = bool(body.get("real_release"))
         check_config = bool(body.get("check_config"))
         route = body.get("route") or group.get("channel")
-        if mode == "flight" and not check_config and body.get("confirm") != "启动试飞":
-            raise ValueError("飞行模式必须确认：飞机已回到起飞点、未解锁、机头朝场内")
+        # site/start_test.sh selects real hardware itself; never trust a client's
+        # real_release=False to turn a delivery flight into a mock flight.
+        real_release = (mode == "flight" and not check_config and
+                        (real_release or (route == "site" and group.get("release") == "real")))
         if real_release and body.get("confirm") != "实投":
             raise ValueError("实投入口必须输入确认词「实投」")
+        if mode == "flight" and not check_config:
+            expected_confirm = "实投" if real_release else "启动试飞"
+            if body.get("confirm") != expected_confirm:
+                raise ValueError("飞行模式必须确认：飞机已回到起飞点、未解锁、机头朝场内")
         if group.get("needs_waypoints") and not check_config and body.get("confirm") != "实投":
             # 仍然允许，但给出明确提醒：入口自身会拒绝空航点
             self.toast("warn", "%s 的走廊航点/H 坐标必须实测填写，留空时入口会拒绝启动（预期行为）" % group["name"])
@@ -517,10 +553,13 @@ class Workbench(object):
             raise ValueError("界面预览与后端实际命令不一致，已拒绝启动。后端实际命令：%s" % command_body)
         command = wb_board.terminal_wrapped_command(self.config, command_body)
         self.stage.reset()
+        self.mission_start_attempted = False
         self.stage.note_action("任务组 %s（%s，%s）：%s" % (group["name"], mode, note, command_body), "info")
         self.trial = {
             "group_id": group_id, "group": group.get("key"), "name": group.get("name"),
-            "mode": mode, "release": ("real" if real_release else group.get("release")),
+            "mode": mode, "release": ("none" if mode == "preview" or check_config else
+                                     "real" if real_release else
+                                     "none" if group.get("release") == "none" else "mock"),
             "real_release": real_release, "command": command_body, "run_dir": None,
             "started_at": time.time(), "check_config": check_config,
             "capture_speed": body.get("capture_speed"), "route": route, "note": note,
@@ -545,11 +584,22 @@ class Workbench(object):
         return {"ok": True, "detail": "已发送 Ctrl+C；落地停机后等待 BAG_CLOSED 再断电"}
 
     def mission_start(self, body):
+        self._require_command_transport()
         if body.get("confirm") != "启动任务":
             raise ValueError("需要确认：仅在 READY 且飞手完成解锁/悬停后调用一次")
         state = self.stage.name
-        if state not in ("READY", "IN_FLIGHT", "DISARMED"):
+        if state not in ("READY", "IN_FLIGHT"):
             raise ValueError("当前阶段是 %s，只有 READY 之后才允许启动任务" % state)
+        session = self.sessions.get("trial")
+        if (session is None or session.state not in ("running", "starting")
+                or self.trial.get("mode") != "flight" or self.trial.get("check_config")):
+            raise ValueError("需要运行中的 flight 专项入口，preview/配置检查不能启动任务")
+        if self.stage.auto_sequence:
+            raise ValueError("当前入口采用自动时序；由板端监督器启动任务，请勿重复下发")
+        with self.trial_lock:
+            if self.mission_start_attempted:
+                raise ValueError("本轮已经请求启动任务；请查看返回结果，不重复调用")
+            self.mission_start_attempted = True
         command = wb_board.terminal_wrapped_command(
             self.config, 'timeout 15 rosservice call /navigation/start_mission "{}"')
         code, output = self.board.run(command, timeout=25.0)

@@ -544,7 +544,12 @@ function scheduleRender() {
   saveScheduled = true;
   window.requestAnimationFrame(function () {
     saveScheduled = false;
-    renderTopbar(); renderGroups(); renderTerminals(); renderMonitor(); renderDrawer();
+    renderTopbar();
+    // Telemetry arrives every second; preserve input focus and IME composition.
+    var active = document.activeElement;
+    if (!(active && active.closest && active.closest('#groups-body'))) renderGroups();
+    if (!(active && active.closest && active.closest('.term-input'))) renderTerminals();
+    renderMonitor(); renderDrawer();
   });
 }
 
@@ -785,23 +790,22 @@ function groupCommandBody(g, mode, realRelease, checkConfig, speed) {
   var siteConfig = g.site_config || siteDir + '/test_area.yaml';
   var route = g.channel || 'module';
   var moduleBase = 'deployment/board_trials_4x4/' + folder;
+  var extra = '';
+  if (speed !== null && speed !== undefined) extra += ' --capture-speed ' + Number(speed).toFixed(1);
 
   // check_config 优先于 channel：后端只在“启动 ROS 节点”时才区分现场/模块入口
   if (checkConfig) {
-    return { body: 'bash ' + moduleBase + '/start.sh preview --site-config ' + siteConfig + ' --check-config',
+    return { body: 'bash ' + moduleBase + '/start.sh preview --site-config ' + siteConfig + extra + ' --check-config',
              note: '只做配置检查：按模块入口展开参数，不启动任何 ROS 节点' };
   }
-  var extra = '';
-  if (speed !== null && speed !== undefined) extra += ' --capture-speed ' + speed;
-
   if (route === 'site') {
-    if (extra) {
+    if (extra && folder !== '09_high_speed_capture') {
       return { body: null, note: '现场快捷入口不支持速度参数（后端会拒绝：现场快捷入口只有拍摄组支持附加参数）' };
     }
-    return { body: 'bash ' + siteDir + '/start_test.sh ' + (g.key || '') + ' ' + mode,
+    return { body: 'bash ' + siteDir + '/start_test.sh ' + (g.key || '') + ' ' + mode + extra,
              note: '现场快捷入口：flight 对投递组自动走 start_real.sh（真实舵机），记忆组走 start.sh' };
   }
-  if (realRelease) {
+  if (realRelease && mode === 'flight') {
     var okFolder = REAL_RELEASE_FOLDERS.indexOf(folder) >= 0;
     return {
       body: okFolder ? ('bash ' + moduleBase + '/start_real.sh --site-config ' + siteConfig + extra) : null,
@@ -1430,7 +1434,7 @@ function secHead(title, right) {
 
 /* 启动任务：只在 READY / IN_FLIGHT / DISARMED 允许，且必须人工点一次 + 二次确认。
  * 后端 mission_start 的允许阶段与这里保持一致，并会再校验一次。 */
-var MISSION_STAGES = ['READY', 'IN_FLIGHT', 'DISARMED'];
+var MISSION_STAGES = ['READY', 'IN_FLIGHT'];
 function missionStartSection(stage) {
   var st = (stage && stage.name) || 'IDLE';
   var stageOk = MISSION_STAGES.indexOf(st) >= 0;
@@ -1455,6 +1459,8 @@ function missionStartSection(stage) {
   if (!connected()) reason = '未连接板端，先连接';
   else if (!stageOk) reason = '当前阶段是 ' + st + '，只有 READY 之后才允许启动任务（后端会返回 400）';
   else if (!trialRun) reason = '专项入口未在运行：先启动对应任务组';
+  else if (state.trial.mode !== 'flight' || state.trial.check_config) reason = 'preview/配置检查不能启动任务';
+  else if (stage.auto_sequence) reason = '板端自动时序负责启动任务，请勿重复下发';
   btn.disabled = !!reason;
   btn.title = reason ? reason
     : 'POST /api/action/mission_start {confirm:"启动任务"} → 板端 rosservice call /navigation/start_mission "{}"\n'
@@ -1831,11 +1837,11 @@ function doPreflight() {
 function doStartAll() {
   var servo = (state.terminals || []).filter(function (t) { return t.id !== 'roscore' && t.needs_servo; });
   var cmdText = 'POST /api/action/start_all\n' + JSON.stringify({ include_servo: '<bool>', confirm: '启动设备' });
-  var note = '按顺序启动六个常驻终端并逐项等待就绪：\n'
+  var note = '按顺序启动设备终端并逐项等待就绪：\n'
     + (state.terminals || []).map(function (t) { return t.seq + '. ' + t.title + '  →  ' + (t.command || ''); }).join('\n')
     + '\n\n不包含解锁、起飞、投递动作；舵机相关终端是否包含由下面选项决定。';
   formModal('一键启动设备', cmdText, note, [
-    { name: 'include_servo', label: '包含舵机端子', type: 'checkbox', value: true }
+    { name: 'include_servo', label: '包含舵机端子（需逐个确认）', type: 'checkbox', value: false }
   ], '确认启动').then(function (vals) {
     if (!vals) return;
     act(api.startAll(vals.include_servo), '一键启动设备').then(function (r) {
@@ -1933,7 +1939,7 @@ function bindUI() {
     });
   }
   $('#btn-disconnect').addEventListener('click', function () {
-    confirmModal('断开板端', 'POST /api/disconnect {}', '断开 SSH 连接；不会停止板端已经运行的节点。', '断开').then(function (res) {
+    confirmModal('断开板端', 'POST /api/disconnect {}', '先落地上锁；断开会关闭本工作台启动的应用和设备会话。外部终端启动的设备需另行收尾。', '断开').then(function (res) {
       if (!res || !res.confirmed) return;
       act(api.disconnect(), '断开连接');
     });

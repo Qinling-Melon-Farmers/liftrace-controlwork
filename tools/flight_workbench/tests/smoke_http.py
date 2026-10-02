@@ -111,7 +111,7 @@ def main():
         check("实投缺少确认词被拒绝", status == 400 and "实投" in body, body[:80])
 
         status, body = request("/api/trial/start", "POST",
-                               {"group_id": "site5", "mode": "flight", "confirm": "启动试飞",
+                               {"group_id": "site5", "mode": "flight", "confirm": "实投",
                                 "expected_body": "bash deployment/site_20260928/start_test.sh 9 flight"})
         check("界面预览与后端命令不一致被拒绝", status == 400 and "不一致" in body, body[:100])
 

@@ -316,7 +316,12 @@ class StageTracker:
                                       "服务失败不盲目重试；由飞手决定是否重试。", key="offboard_failed", throttle=False))
         elif name == "AUTO_MISSION_START":
             self.mission_start = {"at": time.time(), "detail": payload}
-            events.append(self._timeline("任务开始服务返回：%s" % payload, "ok"))
+            success = payload.strip().startswith("True")
+            events.append(self._timeline("任务开始服务返回：%s" % payload, "ok" if success else "error"))
+            if not success:
+                events.append(self._alert("error", "启动任务未成功：%s" % payload,
+                                          "板端不会自动重试；查看任务状态，由飞手处理。",
+                                          key="mission_start_false", throttle=False))
         elif name == "AUTO_MISSION_START_FAILED":
             events.append(self._alert("error", "启动任务失败：%s" % payload,
                                       "确认已 READY、已解锁并进入 OFFBOARD；不要为催促重复调用。",
@@ -541,7 +546,8 @@ def ready_check(kind, spec, telemetry):
         return False, "等待 ROS master（roscore）"
     if kind == "mavros_connected":
         state = telemetry.get("state") or {}
-        if state.get("connected"):
+        age = ((telemetry.get("topics") or {}).get("/mavros/state") or {}).get("age")
+        if state.get("connected") and age is not None and 0 <= age <= 2:
             return True, "MAVROS 已连接飞控（mode=%s armed=%s）" % (state.get("mode"), state.get("armed"))
         return False, "等待 MAVROS 连接飞控（当前 connected=%s）" % state.get("connected")
     if kind == "topic":

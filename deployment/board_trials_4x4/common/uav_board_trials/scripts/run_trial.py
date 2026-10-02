@@ -1,17 +1,12 @@
 #!/usr/bin/env python3
-"""Local board supervisor: measures a stationary reference; never arms or starts mission."""
+"""Board supervisor: never arms; optionally starts the mission after manual arm/hover."""
 import argparse,json,math,os,signal,subprocess,threading,time,shutil
 from pathlib import Path
 from collections import deque
-import numpy as np,yaml,rospy,rosnode,tf2_ros
-from geometry_msgs.msg import PoseStamped
-from sensor_msgs.msg import CameraInfo,Image,CompressedImage,PointCloud2
-from mavros_msgs.msg import State,ExtendedState
-from std_msgs.msg import String
-from trial_config import generate,validate_settings,TRIAL_FOLDERS,NO_DROP_MODES,mapping_profile
+import numpy as np,yaml
+from trial_config import generate,validate_settings,apply_site_profile,TRIAL_FOLDERS,NO_DROP_MODES,mapping_profile
 from trial_bag import TrialBag
 from mapping_startup import PoseAgreement,MapWarmup,VisionReadiness,startup_transport_pending
-from uav_vision.msg import TargetDetectionArray,TargetCandidateArray
 
 def main():
     p=argparse.ArgumentParser();p.add_argument('trial',choices=sorted(TRIAL_FOLDERS));p.add_argument('mode',choices=['preview','flight']);p.add_argument('--root',type=Path,required=True);p.add_argument('--model',type=Path);p.add_argument('--metadata',type=Path);p.add_argument('--check-config',action='store_true');p.add_argument('--site-config',type=Path);p.add_argument('--real-release',action='store_true');p.add_argument('--mapping-startup-config',type=Path);p.add_argument('--capture-speed',type=float,choices=(.5,1.));p.add_argument('--capture-lighting',choices=('normal','dim','unspecified'));a=p.parse_args()
@@ -25,9 +20,8 @@ def main():
         if not math.isfinite(float(startup[key])) or float(startup[key])<=0:raise ValueError('invalid mapping startup '+key)
     if a.site_config:
         profile=yaml.safe_load(a.site_config.read_text()) or {}
-        allowed={'flight_area','search_line_x','compressed_image_topic','high_agl','max_agl','terminal_hover_agl','auto_start_after_arm','initialization_timeout','obstacle_columns_enabled'}
-        if not isinstance(profile,dict) or set(profile)-allowed:p.error('Unsupported site profile key')
-        settings.update(profile)
+        try:apply_site_profile(settings,profile)
+        except ValueError as error:p.error(str(error))
     if a.capture_speed is not None or a.capture_lighting is not None:
         if a.trial!='high_speed_capture':p.error('Capture options are only valid for high_speed_capture')
         if a.capture_speed is not None:settings['cruise_speed']=a.capture_speed
@@ -39,6 +33,12 @@ def main():
     except ValueError as error:p.error(str(error))
     if a.check_config:
         print('CONFIG_VALID; no ROS nodes started');return
+    import rospy,rosnode,tf2_ros
+    from geometry_msgs.msg import PoseStamped
+    from sensor_msgs.msg import CameraInfo,Image,CompressedImage,PointCloud2
+    from mavros_msgs.msg import State,ExtendedState
+    from std_msgs.msg import String
+    from uav_vision.msg import TargetDetectionArray,TargetCandidateArray
     rospy.init_node('board_trial_supervisor',disable_signals=True)
     if rospy.get_param('/use_sim_time',False):raise RuntimeError('Board trials refuse /use_sim_time=true; do not run against laptop SITL')
     existing=set(rosnode.get_node_names())
@@ -215,7 +215,7 @@ def main():
                         now=rospy.Time.now().to_sec()
                         recent=[v for v in samples if 0<=now-v[4]<=1.]
                     ready=(len(recent)>=10 and now-recent[-1][4]<.3
-                           and abs(recent[-1][2]-reference['low_z'])<.15
+                           and abs(recent[-1][2]-reference['takeoff_z'])<.15
                            and np.max(np.ptp(np.array(recent)[:,:3],axis=0))<.12)
                     if ready:
                         hover_since=hover_since or time.monotonic()
@@ -232,7 +232,7 @@ def main():
                 last_status_log=time.monotonic();status=mission_rx[0]
                 print('FLIGHT_STATUS',dict(mode=s.mode if s else None,armed=s.armed if s else None,
                     phase=status.get('phase','UNKNOWN'),reason=status.get('reason',status.get('last_reason',''))),flush=True)
-                if a.mode=='flight' and status.get('phase')=='IDLE':
+                if a.mode=='flight' and not auto_enabled and status.get('phase')=='IDLE':
                     print('WAITING_FOR_MANUAL_MISSION_START: flight READY is not route START.',flush=True)
             done=ever_airborne[0] and s is not None and not s.armed and e is not None and e.landed_state==ExtendedState.LANDED_STATE_ON_GROUND
             if done:

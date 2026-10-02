@@ -166,7 +166,8 @@ class ReadyCheckTest(unittest.TestCase):
     TELEMETRY = {
         "master": True,
         "state": {"connected": True, "armed": False, "mode": "AUTO.LOITER"},
-        "topics": {"/camera/image_raw": {"count": 120, "hz": 10.0, "age": 0.2},
+        "topics": {"/mavros/state": {"age": 0.1},
+                   "/camera/image_raw": {"count": 120, "hz": 10.0, "age": 0.2},
                    "/livox/lidar": {"count": 0, "hz": 0.0, "age": None}},
         "services": {"/legacy/Servo_raw": "patrol_control/Servo"},
         "nodes": ["/mavros", "/patrol_control", "/flight_workbench_probe"],
@@ -216,13 +217,13 @@ class CommandBuildTest(unittest.TestCase):
         self.assertIn("09_high_speed_capture/start.sh preview", command)
         self.assertTrue(command.endswith("--check-config"))
 
-    def test_capture_speed_only_module(self):
+    def test_capture_speed_site_and_module(self):
         command, _ = wb_board.build_group_command(CONFIG, self.group("site6"), "flight",
                                                   route="module", capture_speed=1.0)
         self.assertIn("--capture-speed 1.0", command)
-        with self.assertRaises(ValueError):
-            wb_board.build_group_command(CONFIG, self.group("site6"), "flight", route="site",
-                                         capture_speed=1.0)
+        command, _ = wb_board.build_group_command(CONFIG, self.group("site6"), "flight", route="site",
+                                                  capture_speed=1.0)
+        self.assertTrue(command.endswith('6 flight --capture-speed 1.0'))
 
     def test_terminal_commands_substituted(self):
         roscore = next(t for t in CONFIG["terminals"] if t["id"] == "roscore")

@@ -115,22 +115,26 @@ def build_group_command(config, group, mode, route=None, real_release=False,
     site_config = variables["site_config"]
     module_base = "deployment/board_trials_4x4/%s" % folder
 
-    if check_config:
-        return ("bash %s/start.sh preview --site-config %s --check-config" % (module_base, site_config),
-                "只做配置检查：按模块入口展开参数，不启动任何 ROS 节点")
-
     extra = ""
     if capture_speed is not None:
-        extra += " --capture-speed %s" % capture_speed
+        if folder != "09_high_speed_capture" or isinstance(capture_speed, bool) or float(capture_speed) not in (.5, 1.):
+            raise ValueError("拍摄速度只允许第6组的 0.5/1.0 m/s")
+        extra += " --capture-speed %.1f" % float(capture_speed)
     if capture_lighting:
+        if folder != "09_high_speed_capture" or capture_lighting not in ("normal", "dim", "unspecified"):
+            raise ValueError("非法拍摄光照标签")
         extra += " --capture-lighting %s" % capture_lighting
 
+    if check_config:
+        return ("bash %s/start.sh preview --site-config %s%s --check-config" % (module_base, site_config, extra),
+                "只做配置检查：按模块入口展开参数，不启动任何 ROS 节点")
+
     if route == "site":
-        if extra:
+        if extra and folder != "09_high_speed_capture":
             raise ValueError("现场快捷入口只有拍摄组支持附加参数，请改用模块入口")
-        return ("bash %s/start_test.sh %s %s" % (site_dir, group.get("key"), mode),
+        return ("bash %s/start_test.sh %s %s%s" % (site_dir, group.get("key"), mode, extra),
                 "现场快捷入口：flight 对投递组自动走 start_real.sh（真实舵机），记忆组走 start.sh")
-    if real_release:
+    if real_release and mode == "flight":
         if folder not in REAL_RELEASE_FOLDERS:
             raise ValueError("%s 没有 start_real.sh，不能走实投入口" % folder)
         return ("bash %s/start_real.sh --site-config %s%s" % (module_base, site_config, extra),

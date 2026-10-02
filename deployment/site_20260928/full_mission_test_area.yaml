@@ -1,4 +1,4 @@
-# H-only: manual arm, auto OFFBOARD/start at actual 1.0m takeoff; visual AUTO.LAND.
+# Full mission: mock drops, manual arm, auto OFFBOARD/start; measured geometry required.
 flight_area:
   center_bounds:
   - -0.35
@@ -55,6 +55,8 @@ high_agl: 2.0
 max_agl: 2.0
 auto_start_after_arm: true
 initialization_timeout: 300.0
-obstacle_columns_enabled: false
+obstacle_columns_enabled: true
 # Replace with the measured H center in the takeoff frame (+X forward, +Y left).
-landing_xy: [2.0, 0.0]
+landing_xy: null
+# At least two measured {x, y, agl} waypoints; agl is FC height above ground.
+corridor_waypoints: []

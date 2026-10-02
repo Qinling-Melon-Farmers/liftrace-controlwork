@@ -13,6 +13,21 @@ HIGH_MODES = ('high_view', 'high_priority', 'memory_only', 'high_view_full', 'hi
 H_MODES = ('landing', 'high_view_full')
 NO_DROP_MODES = ('landing', 'memory_only', 'high_speed_capture')
 
+def apply_site_profile(settings, profile):
+    """Merge measured site geometry without changing the module's mission kind."""
+    allowed={'flight_area','search_line_x','compressed_image_topic','high_agl','max_agl',
+             'terminal_hover_agl','auto_start_after_arm','initialization_timeout','obstacle_columns_enabled'}
+    if settings['mode'] in H_MODES:
+        allowed.add('landing_xy')
+    if settings.get('trial_kind') in ('corridor_landing','full_mission'):
+        allowed.add('corridor_waypoints')
+    if not isinstance(profile,dict) or set(profile)-allowed:
+        raise ValueError('Unsupported site profile key')
+    if settings['mode'] in H_MODES and 'terminal_hover_agl' in profile:
+        raise ValueError('H landing cannot use terminal_hover_agl; preserve visual AUTO.LAND')
+    settings.update(profile)
+    return settings
+
 def mapping_profile(settings):
     if settings['mode'] in HIGH_MODES:
         return 'high'
@@ -95,6 +110,13 @@ def validate_settings(settings):
     if 'terminal_hover_agl' in settings and not .25<=settings['terminal_hover_agl']<=.5:raise ValueError('invalid terminal hover')
     if type(settings.get('obstacle_columns_enabled',True)) is not bool:raise ValueError('invalid obstacle column flag')
     area=flight_geometry(settings);cb=area['center_bounds']
+    if settings['mode'] in H_MODES and settings.get('trial_kind') not in ('corridor_landing','full_mission'):
+        landing=settings.get('landing_xy')
+        if (not isinstance(landing,list) or len(landing)!=2 or
+                any(isinstance(v,bool) or not isinstance(v,(int,float)) or not math.isfinite(v) for v in landing)):
+            raise ValueError('Fill landing_xy with the measured H center')
+        if not max(.35,cb[0])<=landing[0]<=cb[1] or not cb[2]<=landing[1]<=cb[3]:
+            raise ValueError('Waypoint/H outside configured flight_area center bounds')
     if settings['mode'] in HIGH_MODES:
         from uav_mission.high_view_probe import ProbeConfig
         ProbeConfig(ground_z=0.,high_agl=settings['high_agl'],low_agl=settings['low_agl'],
@@ -228,5 +250,5 @@ def generate(root,out,settings,fc_xyz,rig):
     (out/'terminal_hover.yaml').write_text(yaml.safe_dump(dict(frame='camera_init',ground_z=ground,hover_agl=settings.get('terminal_hover_agl',.3),max_agl=settings.get('max_agl',2.9),descent_speed=.15)))
     for name,data in [('runtime.yaml',runtime),('control.yaml',control),('overrides.yaml',overrides),('auto_land.yaml',dict(frame='camera_init',landing_xy=[x+.6,y],cruise_z=low,route_revision='board-'+mode))]:
         (out/name).write_text(yaml.safe_dump(data,sort_keys=False))
-    reference=dict(mode=mode,mapping_profile=mapping_profile(settings),fc_xyz=[x,y,z],ground_z=ground,low_z=low,high_z=high,drop_z=drop,known_rig=rig,settings=settings)
+    reference=dict(mode=mode,mapping_profile=mapping_profile(settings),fc_xyz=[x,y,z],ground_z=ground,low_z=low,high_z=high,drop_z=drop,takeoff_z=control['waypoints'][0]['z'],known_rig=rig,settings=settings)
     (out/'ground_reference.json').write_text(json.dumps(reference,indent=2));return reference

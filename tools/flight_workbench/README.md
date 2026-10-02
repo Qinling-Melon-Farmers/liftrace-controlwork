@@ -8,6 +8,10 @@
 > 调用任务开始、不代替飞手接管、不改板端代码、不把口令写进仓库。
 > 工作台里的 READY 只是"应用链就绪"，不是起飞许可，也不是飞行验收结论。
 
+2026-10-02 review 已修复实投确认词、第6组速度、设备失败继续启动、旧遥测判就绪及收尾顺序。
+H/走廊/整场已适配人工解锁后的自动时序，**本轮仅本地更新，未上板或实飞**。
+具体按钮顺序、切组与更新范围见 [review与现场操作](../../docs/deployment/flight_workbench_20261002/REVIEW_AND_OPERATIONS.md)。
+
 ---
 
 ## 1. 快速开始
@@ -82,14 +86,15 @@ bash tools/flight_workbench/start_workbench.sh --transport local
    （`ROS master`、`connected=true`、`/livox/lidar`、`/camera/image_raw` 新鲜）。已经在跑的
    设备节点会被识别为"已在运行"而跳过，不重复叠加。舵机两个终端默认不在自动流程里，需单独点击
    （会复位机构，界面会弹确认）。
-3. 等 READY。右栏阶段灯会走 `启动中 → 初始化中（定位/相机/坐标一致）→ 地图就绪（MAPPING_READY）
+3. 对应卡片先选「飞行 flight」模式、勾未解锁/起飞点确认；实投组输入「实投」，
+   再点卡片底部「飞行（flight）」及弹窗「确认启动 flight」。设备启动本身不启动专项。
+   随后等 READY。右栏阶段灯会走 `启动中 → 初始化中（定位/相机/坐标一致）→ 地图就绪（MAPPING_READY）
    → 就绪（READY）`，并实时显示 `pose_samples`、`camera_info`、`image_seen`、`compressed_fresh`、
    定位一致性原因、`distinct_clouds` 等关键量。**`INITIALIZING`、`MAPPING_READY` 都不等于 READY。**
 4. 出现 `fc_lio_disagreement` 时按手册处理：等飞控与 LIO 自行收敛，不要转动机身追数值。
 5. READY 后由飞手按现场流程解锁/进 OFFBOARD。现场版本会自动请求 OFFBOARD 并按低空稳定条件
-   自动启动任务（工作台会在时间线里显示 `AUTO_MISSION_START`）；H 专项（模块03）走手动时序，
-   这时在右栏点「启动任务」= `rosservice call /navigation/start_mission "{}"`，只在 READY 之后
-   允许点击，且服务返回 `success: true` 才算成功。
+   自动启动任务（时间线显示 `AUTO_MISSION_START True`）。本地更新后的03/04/08也使用自动时序；
+   03按实际1.0m起飞高度判稳定，自动时序下不再点「启动任务」。旧板端H仍按旧手动流程，更新前核对版本。
 6. 结束时按手册落地停机：点「停止（Ctrl+C）」让 `run_trial.py` 走既有收尾（等 `BAG_CLOSED` 和
    应用退出），再断电。
 
@@ -100,7 +105,8 @@ bash tools/flight_workbench/start_workbench.sh --transport local
   该入口的 `flight` 对投递组会自动走 `start_real.sh`（真实舵机 `/legacy/Servo_raw`），
   记忆组走 `start.sh`；界面会显示当前组是「实投/模拟/无投递」以及是否需要舵机。
 - **模块目录 01–09**（`deployment/board_trials_4x4/<目录>/start.sh`）：用于 H 降落（03）、
-  走廊（04）、整场（08）等专项。04/08 的走廊航点与 H 坐标出厂留空，**入口拒绝启动属预期**。
+  走廊（04）、整场（08）等专项。04/08在各自独立 `*_test_area.yaml` 中填写实测走廊航点与H坐标，
+  **出厂留空时拒绝启动**。08看板默认模拟投递，三个H流程均不使用30cm终点悬停。
 - 每个卡片都能展开「命令预览」，看到将要执行的完整命令（可复制），也可只勾「配置检查」
   跑 `--check-config`（不启动任何节点）。
 - 防护：`flight` 必须勾选"飞机已回到起飞点、未解锁、机头朝场内"；实投必须额外输入确认词
@@ -134,6 +140,7 @@ bash tools/flight_workbench/start_workbench.sh --transport local
 cd tools/flight_workbench
 python3 tests/test_status.py     # 29 项：阶段解析、告警节流、就绪判定、命令拼装、地址清单
 python3 tests/test_probe.py      # 10 项：板端探针（假 rospy，含"只订阅不下发"边界）
+python3 tests/test_review.py     # 16 项：实投请求、速度、编排失败/旧遥测、并发与收尾回归
 python3 tests/selfcheck.py       # 23 项：纸板工程端到端（会话→编排→READY→回报→产物→SSE）
 python3 tests/smoke_http.py      # 15 项：真起服务，检查接口/静态文件/SSE/安全拒绝/地址切换
 ```
@@ -155,7 +162,7 @@ python3 tests/smoke_http.py      # 15 项：真起服务，检查接口/静态�
 | READY 后飞机没动 | 正常：现场版本 READY 后仍需**人工解锁**；解锁后监督器才请求 OFFBOARD 并在低空稳定后启动任务。 |
 | 04/08 组一启动就退出 | 走廊航点/H 坐标留空，入口按设计拒绝；补实测坐标后再启动。 |
 | 舵机按钮点了没反应 | 5a/5b 需要单独确认；`sudo` 提示会自动填口令（若配置了），也可在终端里手动输入。 |
-| 收尾 | 先「停止（Ctrl+C）」，等应用退出与 `BAG_CLOSED`，确认无 `.bag.active` 再断电。 |
+| 收尾 | 先落地上锁，再「停止（Ctrl+C）」，等应用退出与 `BAG_CLOSED`，确认无 `.bag.active` 再断电。现场1–6组末段是30cm悬停，须飞手落地。 |
 
 ---
 
@@ -195,4 +202,3 @@ tools/flight_workbench/
 - 尚未接 PTY resize（面板尺寸变化不会同步 `stty`）；声音提示需要一次用户点击后才能播放。
 - 板端大文件与 ROS 日志仍由现场既有流程收集，工作台不改板端任何文件（只上传只读探针到
   `logs/flight_workbench/`）。
-

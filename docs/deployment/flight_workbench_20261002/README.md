@@ -1,5 +1,8 @@
 # 试飞验证看板（flight_workbench）
 
+2026-10-02后续：看板启动链review、具体点击/切组步骤、H/走廊/整场自动化适配见
+[REVIEW_AND_OPERATIONS.md](REVIEW_AND_OPERATIONS.md)。本轮仅本地提交，未上板或实飞。
+
 2026-10-02：把现场手册 [OPERATIONS.md](../flight_handover_20261001/OPERATIONS.md) 的
 "6~7 个终端 + 等 READY + 看日志"做成浏览器里的点击工作台。工具本体在
 [tools/flight_workbench](../../../tools/flight_workbench/README.md)。

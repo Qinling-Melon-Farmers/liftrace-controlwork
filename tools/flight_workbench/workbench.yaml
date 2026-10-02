@@ -177,7 +177,7 @@ groups:
     channel: site
     name: "现场第1组 · 低空直飞中断单投"
     plan: "低空直飞，遇前方高权重靶中断、对齐、一次投递。"
-    ending: "恢复稳定后原地（低空高度）降落"
+    ending: "任务结束后下降至30cm悬停，飞手落地"
     release: real
     needs_servo: true
 
@@ -187,7 +187,7 @@ groups:
     channel: site
     name: "现场第2组 · 低空连续多投（默认两投）"
     plan: "低位搜索、中断、投递、恢复搜索，默认两投。"
-    ending: "完成指定 1–3 投后原地降落"
+    ending: "完成指定投递后下降至30cm悬停，飞手落地"
     release: real
     needs_servo: true
 
@@ -197,7 +197,7 @@ groups:
     channel: site
     name: "现场第3组 · 高位整圈仅记忆"
     plan: "完整高位环线，只检测记忆，规划下降。"
-    ending: "无投递指令，完成记忆后原地降落"
+    ending: "完成记忆后下降至30cm悬停，飞手落地"
     release: none
     needs_servo: false
 
@@ -207,7 +207,7 @@ groups:
     channel: site
     name: "现场第4组 · 高位记忆后逐个重访投递"
     plan: "完整高位环线，冻结 1–3 个有效目标，低位逐个重访、对齐、投递。"
-    ending: "已记忆目标全部投完后在最后目标附近降落"
+    ending: "已记忆目标投完后下降至30cm悬停，飞手落地"
     release: real
     needs_servo: true
 
@@ -217,7 +217,7 @@ groups:
     channel: site
     name: "现场第5组 · 高位提前中断后低位重访"
     plan: "高位搜索，满足支持条件后提前中断，低位复核与连续投递。"
-    ending: "已冻结目标全部投完后在最后目标附近降落"
+    ending: "投递后先返起飞点，再下降至30cm悬停，飞手落地"
     release: real
     needs_servo: true
 
@@ -227,7 +227,7 @@ groups:
     channel: site
     name: "现场第6组 · 高速拍摄采集（不投递）"
     plan: "按速度档采集五类靶与 H 负例，只采集不投递。"
-    ending: "采集完成后原地降落"
+    ending: "采集完成后下降至30cm悬停，飞手落地"
     release: none
     needs_servo: false
     speed_options: [0.5, 1.0]
@@ -242,8 +242,7 @@ groups:
     release: none
     needs_servo: false
     site_config: "deployment/site_20260928/h_landing_test_area.yaml"
-    manual_mission_start: true
-    notes: "H 专项为手动任务时序：READY 后由飞手解锁/进 OFFBOARD，再在工作台点“启动任务”。不要执行现场 start_test.sh 3（那是记忆组）。"
+    notes: "READY 后人工解锁，板端自动请求 OFFBOARD，在实际 1.0m 起飞高度稳定后启动任务；H识别升至1.8m并视觉降落。不要执行现场 start_test.sh 3（那是记忆组）。"
 
   - id: mod04
     key: "04"
@@ -255,7 +254,7 @@ groups:
     release: none
     needs_servo: false
     needs_waypoints: true
-    site_config: "deployment/site_20260928/test_area.yaml"
+    site_config: "deployment/site_20260928/corridor_landing_test_area.yaml"
     notes: "走廊航点与 H 坐标出厂留空，未填写时入口会拒绝启动；这是预期行为，不要用仿真航点替代。"
 
   - id: mod08
@@ -268,5 +267,5 @@ groups:
     release: mock
     needs_servo: false
     needs_waypoints: true
-    site_config: "deployment/site_20260928/test_area.yaml"
+    site_config: "deployment/site_20260928/full_mission_test_area.yaml"
     notes: "走廊引导点和 H 坐标必须实测填写，否则入口拒绝运行。"

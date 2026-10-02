@@ -342,9 +342,12 @@ class SessionManager(object):
         return session
 
     def close_all(self):
-        for sid in list(self.sessions):
+        # Keep ROS/MAVROS available until the supervisor closes children/bag.
+        order = (["trial"] if "trial" in self.sessions else [])
+        order += [sid for sid in reversed(list(self.sessions)) if sid != "trial"]
+        for sid in order:
             try:
-                self.close(sid, wait=3.0)
+                self.close(sid, wait=120.0 if sid == "trial" else 3.0)
             except Exception:
                 pass
 

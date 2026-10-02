@@ -78,7 +78,8 @@ FAKE_TELEMETRY = {
     "t": time.time(), "master": True,
     "state": {"connected": True, "armed": False, "mode": "AUTO.LOITER"},
     "extended": {"landed_state": 1},
-    "topics": {"/camera/image_raw": {"count": 120, "hz": 10.0, "age": 0.1}},
+    "topics": {"/mavros/state": {"age": 0.1},
+               "/camera/image_raw": {"count": 120, "hz": 10.0, "age": 0.1}},
     "services": {"/legacy/Servo_raw": "patrol_control/Servo"},
     "nodes": ["/mavros", "/flight_workbench_probe"],
 }
@@ -162,7 +163,7 @@ def main():
         ({"group_id": "site5", "mode": "flight"}, "飞行模式缺少确认被拒绝"),
         ({"group_id": "site5", "mode": "flight", "confirm": "启动试飞", "real_release": True},
          "实投缺少确认词被拒绝"),
-        ({"group_id": "site5", "mode": "flight", "confirm": "启动试飞",
+        ({"group_id": "site5", "mode": "flight", "confirm": "实投",
           "expected_body": "bash deployment/site_20260928/start_test.sh 9 flight"},
          "界面预览与后端命令不一致被拒绝"),
     ):
@@ -173,7 +174,7 @@ def main():
             check(name, True, str(error)[:60])
 
     # 5) 启动任务组并等阶段推进（带上界面预览命令，走一致性校验的正路径）
-    workbench.start_trial({"group_id": "site5", "mode": "flight", "confirm": "启动试飞",
+    workbench.start_trial({"group_id": "site5", "mode": "flight", "confirm": "实投", "real_release": True,
                            "expected_body": "bash deployment/site_20260928/start_test.sh 5 flight"})
     check("任务组命令按现场入口拼装",
           workbench.trial["command"] == "bash deployment/site_20260928/start_test.sh 5 flight",
