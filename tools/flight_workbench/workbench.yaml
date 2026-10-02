@@ -269,3 +269,15 @@ groups:
     needs_waypoints: true
     site_config: "deployment/site_20260928/full_mission_test_area.yaml"
     notes: "走廊引导点和 H 坐标必须实测填写，否则入口拒绝运行。"
+
+  - id: mod06mock
+    key: "06"
+    folder: "06_high_priority"
+    channel: module
+    name: "模块06 · 第五组（模拟投递，不接舵机）"
+    plan: "高位搜索提前中断、低位重访连续投递；mock 释放，验证任务链与返航收尾。"
+    ending: "投完后先返起飞点，再下降至30cm悬停，飞手落地"
+    release: mock
+    needs_servo: false
+    site_config: "deployment/site_20260928/test_area.yaml"
+    notes: "模拟投递：走模块 start.sh（不带 --real-release），不需要舵机终端；验收读 mock_service_calls / committed_mock_deliveries，不要读 committed_deliveries。"
