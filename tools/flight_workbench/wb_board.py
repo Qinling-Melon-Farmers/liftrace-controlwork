@@ -7,6 +7,7 @@
 import base64
 import json
 import os
+import re
 import time
 
 import yaml
@@ -19,6 +20,41 @@ DEFAULT_PROFILE_DIR = os.path.join(os.path.expanduser("~"), ".config", "liftrace
 
 REAL_RELEASE_FOLDERS = ("01_visual_interrupt", "02_high_view_revisit", "05_low_multi",
                         "06_high_priority", "08_full_mission")
+
+# ssh 层错误 → 现场可执行建议。ssh 失败时远端脚本根本不会执行，不能把"没有标记输出"
+# 解释成"板端目录/文件缺失"（换板后免密没配时最容易踩）。
+SSH_ERROR_HINTS = (
+    (re.compile(r"Permission denied \(publickey,password\)|Permission denied \(publickey\)|"
+                r"Permission denied"),
+     "SSH 认证失败：这块板没有我们任何免密公钥，且工作台没有口令。"
+     "在「连接」里填 SSH 口令（可勾「记住」存到本机 profile，0600），"
+     "或把公钥装进板端 ~/.ssh/authorized_keys 后重连。"),
+    (re.compile(r"REMOTE HOST IDENTIFICATION HAS CHANGED|Host key verification failed|"
+                r"Offending (?:ED25519|RSA|ECDSA) key"),
+     "板端主机指纹与 known_hosts 不一致（换板常见）。确认是新板后执行 "
+     "ssh-keygen -R <板端地址> 删除旧记录，再连接。"),
+    (re.compile(r"Could not resolve hostname|Name or service not known"),
+     "主机名无法解析：检查「板端地址」是否写对。"),
+    (re.compile(r"Connection timed out|Operation timed out|No route to host|"
+                r"Network is unreachable"),
+     "网络不通或板端未上电：确认板子已开机、与本机同网段（可先 ping）。"),
+    (re.compile(r"Connection refused"),
+     "板端拒绝连接：sshd 未运行或端口不是 22。"),
+    (re.compile(r"Too many authentication failures"),
+     "尝试的密钥过多被拒：在 ~/.ssh/config 里为该主机指定 IdentityFile 并加 "
+     "IdentitiesOnly yes。"),
+    (re.compile(r"Connection closed by|kex_exchange_identification|Connection reset by peer"),
+     "SSH 握手被中断：sshd 可能刚重启或链路抖动，稍后重试。"),
+)
+
+
+def classify_ssh_error(text):
+    """从 ssh 输出识别认证/网络层错误，返回 (原因, 处理建议)；没有则 (None, "")。"""
+    for pattern, hint in SSH_ERROR_HINTS:
+        match = pattern.search(text or "")
+        if match:
+            return match.group(0), hint
+    return None, ""
 
 
 # ---- 配置 ----
@@ -215,18 +251,32 @@ class BoardClient(object):
         ok = (code == 0 and info.get("root") == "OK" and info.get("env") == "OK"
               and str(info.get("rospy", "")).startswith("OK"))
         info["ok"] = ok
+        ssh_reason, ssh_hint = classify_ssh_error(output)
+        info["ssh_error"] = ssh_reason or ""
+        info["ssh_ok"] = not ssh_reason
         if ok:
             info["detail"] = "%s（%s）；rospy %s" % (
                 info.get("host", "?"), info.get("uname", "?"), info.get("rospy", ""))
+        elif ssh_reason:
+            # ssh 都没连上时，远端脚本没执行过；不能把"没有标记输出"说成板端文件缺失
+            info["auth_failed"] = "Permission denied" in ssh_reason
+            info["detail"] = "SSH 层失败：%s —— %s" % (ssh_reason, ssh_hint)
         else:
             reasons = []
             if info.get("root") != "OK":
                 reasons.append("工程根目录不存在：%s" % self.root)
             if info.get("env") != "OK":
                 reasons.append("现场环境脚本缺失：%s" % env_script)
+            if info.get("model") not in (None, "OK"):
+                reasons.append("RKNN 模型缺失：%s" % model)
+            if info.get("meta") not in (None, "OK"):
+                reasons.append("模型 metadata 缺失：%s" % metadata)
             if not str(info.get("rospy", "")).startswith("OK"):
                 reasons.append("板端 ROS Python 不可用：%s" % info.get("rospy"))
-            info["detail"] = "；".join(reasons) or ("连接或命令失败（exit=%s）" % code)
+            if not reasons:
+                tail = " / ".join(line.strip() for line in output.splitlines()[-3:] if line.strip())
+                reasons.append("远端命令未返回预期标记（exit=%s）：%s" % (code, tail[:300]))
+            info["detail"] = "；".join(reasons)
         return info
 
     # -- 单实例检查 --

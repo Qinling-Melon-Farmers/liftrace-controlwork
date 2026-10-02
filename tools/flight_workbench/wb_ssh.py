@@ -52,6 +52,11 @@ class Target(object):
         if self.port and self.port != 22:
             argv += ["-p", str(self.port)]
         argv += ["-o", "ConnectTimeout=%d" % int(self.connect_timeout)]
+        if not self.password:
+            # 没有口令可用时不要挂在交互口令提示上：让 ssh 立刻失败，界面才能如实报
+            # "认证失败/指纹不一致/网络不通"，而不是被误判成"板端文件缺失"。
+            # BatchMode 不影响 agent/密钥认证，也不影响远端命令自己的提示（如 sudo）。
+            argv += ["-o", "BatchMode=yes"]
         argv += self.ssh_options
         return argv
 

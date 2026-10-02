@@ -290,5 +290,50 @@ class HostOptionsTest(unittest.TestCase):
         self.assertEqual(config["connection"]["host"], "orangepi@192.168.3.15")
 
 
+class SshFailureTest(unittest.TestCase):
+    """ssh 连不上时必须如实报认证/网络原因，不能误报成"板端文件缺失"。"""
+
+    def test_permission_denied_is_reported_as_auth(self):
+        reason, hint = wb_board.classify_ssh_error(
+            "orangepi@192.168.43.59: Permission denied (publickey,password).")
+        self.assertIn("Permission denied", reason)
+        self.assertIn("口令", hint)
+
+    def test_host_key_changed_and_network_cases(self):
+        reason, hint = wb_board.classify_ssh_error(
+            "@@@ WARNING: REMOTE HOST IDENTIFICATION HAS CHANGED! @@@")
+        self.assertIn("IDENTIFICATION HAS CHANGED", reason)
+        self.assertIn("ssh-keygen -R", hint)
+        reason, hint = wb_board.classify_ssh_error("ssh: connect to host 10.0.0.1 port 22: "
+                                                   "Connection timed out")
+        self.assertIn("timed out", reason)
+        self.assertIn("网络不通", hint)
+
+    def test_clean_output_has_no_ssh_error(self):
+        self.assertEqual(wb_board.classify_ssh_error("HOST=orangepi\nROOT=OK\n"), (None, ""))
+
+    def test_connection_detail_prefers_ssh_reason(self):
+        class StubBoard(wb_board.BoardClient):
+            def __init__(self):
+                self.config = {"connection": dict(CONFIG["connection"])}
+                self.target = wb_ssh.Target(host="orangepi@192.168.43.59")
+
+            def run(self, command, timeout=30.0):
+                return 255, "orangepi@192.168.43.59: Permission denied (publickey,password).\n"
+
+        info = StubBoard().test_connection()
+        self.assertFalse(info["ok"])
+        self.assertTrue(info["auth_failed"])
+        self.assertIn("SSH 层失败", info["detail"])
+        self.assertNotIn("工程根目录不存在", info["detail"])
+
+    def test_batchmode_only_without_password(self):
+        target = wb_ssh.Target(host="orangepi@192.168.43.59",
+                               ssh_options=["-o", "LogLevel=ERROR"])
+        self.assertIn("BatchMode=yes", target.remote_argv("echo hi", force_tty=False))
+        target.password = "secret"
+        self.assertNotIn("BatchMode=yes", target.remote_argv("echo hi", force_tty=False))
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

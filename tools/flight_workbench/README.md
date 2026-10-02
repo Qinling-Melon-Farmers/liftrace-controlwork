@@ -156,6 +156,9 @@ python3 tests/smoke_http.py      # 15 项：真起服务，检查接口/静态�
 | 现象 | 处理 |
 |---|---|
 | 连接失败 / `ROOT=MISSING` | 换网络后地址变了；确认 `board_root` 是现场实际部署目录（当前 `/home/orangepi/liftrace_board_trials_20260928`）。 |
+| `SSH 层失败：Permission denied (publickey,password)` | 这块板没有我们任何免密公钥，且工作台没拿到口令。在「连接」里填 SSH 口令（勾「记住」存到本机 profile，0600），或把公钥装进板端 `~/.ssh/authorized_keys`。**没口令时工作台用 `BatchMode=yes` 立即失败并如实报错，不会再挂在口令提示上被误判成"板端文件缺失"。** |
+| `SSH 层失败：REMOTE HOST IDENTIFICATION HAS CHANGED` | 换板后 known_hosts 里还是旧指纹：确认是新板后 `ssh-keygen -R 192.168.43.59` 删掉旧记录再连。 |
+| `SSH 层失败：No route to host / Connection timed out` | 板端未上电或不同网段：先 ping 板子；地址在下拉里选对（现场 43.59）。 |
 | 探针不上线（右上角灰） | 探针需要板端 ROS Python 与已 source 的环境；先确认 `环境脚本` 存在。探针未起来不影响终端操作，只是没有遥测。 |
 | 一键启动设备某步失败 | 看该步详情与对应终端输出；roscore 已存在会被跳过，MAVROS 串口按实际接线核对。 |
 | 初始化一直不过 | 检查飞机是否**未解锁且静置**、机头是否朝场内 +X、相机原始图/压缩图/CameraInfo 是否齐全；`fc_lio_disagreement` 时等收敛，不要转动机身。 |
