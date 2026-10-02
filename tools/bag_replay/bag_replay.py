@@ -29,6 +29,10 @@ def export(a):
     rows={k:[] for k in topics};frames=[]
     with rosbag.Bag(str(Path(a.bag).resolve())) as b:
         begin=b.get_start_time();end=b.get_end_time();available=b.get_type_and_topic_info().topics
+        light_camera='/board_trials/recording/image/compressed'
+        if not a.topics and topics['camera'] not in available and light_camera in available:
+            topics['camera']=light_camera
+            reverse={v:k for k,v in topics.items()}
         for topic,m,bt in b.read_messages(topics=list(topics.values())):
             key=reverse[topic];t=bt.to_sec()-begin
             if key=='camera':

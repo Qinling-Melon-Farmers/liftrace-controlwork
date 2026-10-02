@@ -1,9 +1,12 @@
 """Read-only rosbag child owned by a board trial; never publishes control data."""
-import json,os,signal,subprocess,time,shutil
+import json,os,signal,subprocess,time,shutil,math
 from pathlib import Path
 
+def camera_source(settings):
+    return settings.get("compressed_image_topic",settings.get("image_topic","/camera/image_raw")+"/compressed")
+
 def topics_for(settings):
-    camera=settings.get("compressed_image_topic",settings.get("image_topic","/camera/image_raw")+"/compressed")
+    camera=settings.get("bag_image_topic", "/board_trials/recording/image/compressed") if float(settings.get("bag_image_hz",5.))>0 else camera_source(settings)
     info=settings.get("camera_info_topic","/camera/camera_info")
     topics = list(dict.fromkeys([camera,info,
         "/tf","/tf_static","/rosout_agg","/Odometry","/mavros/vision_pose/pose",
@@ -24,10 +27,12 @@ def topics_for(settings):
         "/mission/release_result","/uav_high_view/probe_status",
         "/board_trials/run_metadata","/board_trials/mock_release","/board_trials/landing_context","/board_trials/auto_land_status","/board_trials/terminal_hover_status",
         "/freedom/static_pointcloud","/sdf_map/occupancy","/sdf_map/occupancy_inflate"]))
-    # Full accumulated clouds dominate storage. Enable explicitly for mapping diagnostics.
+    # Light mode retains only the planner inflated cloud, matching field recorder.
     if not settings.get("record_map_clouds", False):
         topics = [t for t in topics if t not in (
             "/freedom/static_pointcloud", "/sdf_map/occupancy", "/sdf_map/occupancy_inflate")]
+    if settings.get("record_inflated_cloud", True) and "/sdf_map/occupancy_inflate" not in topics:
+        topics.append("/sdf_map/occupancy_inflate")
     return topics
 
 
@@ -55,6 +60,9 @@ class TrialBag:
         self.topics=topics_for(settings);self.process=None;self.stream=None
         self.started=None;self.closed=False;self.last_check=0.;self.notified=False
         self.stop_reason="normal_shutdown"
+        self.image_relay=None
+        self.image_hz=float(settings.get("bag_image_hz",5.))
+        if not math.isfinite(self.image_hz) or self.image_hz<0:raise ValueError("invalid bag_image_hz")
     def start(self):
         if shutil.disk_usage(self.out).free<2*1024**3:raise RuntimeError("Less than 2GiB available for bag")
         self.stream=(self.out/"rosbag.log").open("w")
@@ -62,13 +70,24 @@ class TrialBag:
                       "--min-space=2G","--repeat-latched","-O",str(self.out/"flight_debug.bag"),
                       *self.topics,"__name:=board_trial_bag"]
         (self.out/"bag_topics.json").write_text(json.dumps(dict(topics=self.topics,
-            command=self.command,camera_transport="compressed",raw_lidar_recorded=False),indent=2))
+            command=self.command,camera_transport="compressed",camera_source=camera_source(self.settings),camera_record_hz=self.image_hz,raw_lidar_recorded=False),indent=2))
         try:
+            if self.image_hz>0:
+                if self.topics[0]==camera_source(self.settings):raise ValueError("bag relay output must differ from camera input")
+                self.image_relay=subprocess.Popen(
+                    ["rosrun","topic_tools","throttle","messages",camera_source(self.settings),
+                     str(self.image_hz),self.topics[0],"__name:=board_bag_image_throttle"],
+                    env=self.env,stdout=self.stream,stderr=subprocess.STDOUT,start_new_session=True)
             self.process=subprocess.Popen(self.command,env=self.env,stdout=self.stream,stderr=subprocess.STDOUT,start_new_session=True)
             self.started=time.monotonic()
             time.sleep(.5)
+            if self.image_relay is not None and self.image_relay.poll() is not None:raise RuntimeError("Image throttle exited during startup")
             if self.process.poll() is not None:raise RuntimeError("rosbag exited during startup; inspect rosbag.log")
         except Exception:
+            if self.process is not None and self.process.poll() is None:
+                os.killpg(self.process.pid,signal.SIGINT)
+                self.process.wait(timeout=10)
+            self._stop_image_relay()
             self.stream.close()
             raise
     def check(self):
@@ -84,6 +103,13 @@ class TrialBag:
             print("RECORDING_WARNING: closing only rosbag at storage/time limit",flush=True)
             try:self.close()
             except Exception as error:print("RECORDING_WARNING: bag finalization failed: "+str(error),flush=True)
+    def _stop_image_relay(self):
+        if self.image_relay is not None and self.image_relay.poll() is None:
+            os.killpg(self.image_relay.pid,signal.SIGINT)
+            try:self.image_relay.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                self.image_relay.kill();self.image_relay.wait(timeout=5)
+
     def close(self):
         if self.closed:return
         self.closed=True
@@ -96,6 +122,7 @@ class TrialBag:
                 try:self.process.wait(timeout=5)
                 except subprocess.TimeoutExpired:
                     os.killpg(self.process.pid,signal.SIGKILL);self.process.wait(timeout=5)
+        self._stop_image_relay()
         if self.stream:self.stream.close()
         required=[self.topics[0],self.topics[1],"/mavros/local_position/pose","/uav_vision/detections"]
         result=summarize(self.out,required);result["stop_reason"]=self.stop_reason

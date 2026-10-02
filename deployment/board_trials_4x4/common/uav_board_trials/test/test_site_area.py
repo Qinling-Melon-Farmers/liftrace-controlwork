@@ -43,8 +43,9 @@ class SiteArea(unittest.TestCase):
         replay=importlib.util.module_from_spec(spec);spec.loader.exec_module(replay)
         topics=topics_for({})
         optional_clouds={"/sdf_map/occupancy_inflate","/sdf_map/occupancy","/freedom/static_pointcloud"}
-        self.assertFalse(set(replay.TOPICS.values())-set(topics)-optional_clouds)
-        self.assertFalse(optional_clouds.intersection(topics))
+        self.assertFalse(set(replay.TOPICS.values())-set(topics)-optional_clouds-{replay.TOPICS["camera"]})
+        self.assertEqual(optional_clouds.intersection(topics),{"/sdf_map/occupancy_inflate"})
+        self.assertEqual(topics[0],"/board_trials/recording/image/compressed")
         self.assertTrue(optional_clouds.issubset(topics_for({"record_map_clouds":True})))
         self.assertIn("/planning/progress",topics)
         self.assertIn("/uav_vision/release_evidence_context",topics)

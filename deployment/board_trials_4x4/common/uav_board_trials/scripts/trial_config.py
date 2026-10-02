@@ -16,7 +16,8 @@ NO_DROP_MODES = ('landing', 'memory_only', 'high_speed_capture')
 def apply_site_profile(settings, profile):
     """Merge measured site geometry without changing the module's mission kind."""
     allowed={'flight_area','search_line_x','compressed_image_topic','high_agl','max_agl',
-             'terminal_hover_agl','auto_start_after_arm','initialization_timeout','obstacle_columns_enabled'}
+             'terminal_hover_agl','auto_start_after_arm','initialization_timeout','obstacle_columns_enabled',
+             'bag_image_hz','bag_image_topic','record_inflated_cloud','record_map_clouds'}
     if settings['mode'] in H_MODES:
         allowed.add('landing_xy')
     if settings.get('trial_kind') in ('corridor_landing','full_mission'):
