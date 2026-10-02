@@ -4,8 +4,8 @@
 里的"6~7 个终端 + 等 READY + 看日志"变成浏览器里的点击操作：SSH 连接、各终端启动、
 任务组选择与启动、初始化/READY 监视与回报、飞行日志与板端产物浏览。
 
-> 定位：**操作与观测工具**。它只启动现场既有入口命令，不自动解锁、不自动起飞、不自动
-> 调用任务开始、不代替飞手接管、不改板端代码、不把口令写进仓库。
+> 定位：**操作与观测工具**。它只启动现场既有入口命令，不下发解锁、不代替飞手接管、不改板端代码、不把口令写进仓库。
+> 自动任务入口在人工解锁后，可按该组配置请求 OFFBOARD、爬升并启动任务；界面不是新的任务状态机。
 > 工作台里的 READY 只是"应用链就绪"，不是起飞许可，也不是飞行验收结论。
 
 2026-10-02 review 已修复实投确认词、第6组速度、设备失败继续启动、旧遥测判就绪及收尾顺序。
@@ -38,8 +38,7 @@ bash tools/flight_workbench/start_workbench.sh --port 8792 --open
    ORANGEPI_SSH_PASSWORD=... bash tools/flight_workbench/start_workbench.sh
    bash tools/flight_workbench/start_workbench.sh --password-file ~/.orangepi.pass   # 文件须在仓库外
    ```
-2. 口令只留在服务进程内存里，用于自动回应 `password:`/`[sudo] password` 提示；勾选"记住"
-   才会写到 `~/.config/liftrace-flight-workbench/profile.json`（0600，不在仓库内）。
+2. 「连接」窗口直接提供历史地址、自定义地址、用户名、端口和密码。自定义地址优先；支持 IP、主机名或 `user@host`。密码默认只留在服务进程内存，不写浏览器存储或文件。只有「连接设置」中明确勾选“记住口令”才保存到本机仓库外的 `~/.config/liftrace-flight-workbench/profile.json`（0600）。
 3. 地址默认取 `workbench.yaml` 的 `connection.host`（外场当前 `orangepi@192.168.43.59`）。
    下拉里的历史地址来自现场部署记录与项目 memoir，选中即写回本机 profile（不改仓库文件）：
 
@@ -52,13 +51,12 @@ bash tools/flight_workbench/start_workbench.sh --port 8792 --open
    | `orangepi@10.231.47.193` | 2026-09-20 现场（onboard_obstacle_reference） |
    | `orangepi@192.168.3.126` | 2026-09-20 旧板端（r64 基线） |
 
-   清单外的地址：连接参数对话框里的「host（自定义）」直接填，或改 `workbench.yaml` 的
-   `connection.host_options`（新增现场地址时一并补 label 说明出处）。
+   清单外的地址：下拉最后一项“自定义地址…”或直接点“连接”填写。工程目录、模型等参数用顶栏“连接设置”，不必再双击标题。连接状态刷新不会清空历史地址列表。
 
 不带板端也能先看界面（本机预览模式：**只渲染界面，默认拒绝执行任何设备/入口命令**）：
 
 ```bash
-bash tools/flight_workbench/start_workbench.sh --transport local
+bash tools/flight_workbench/start_workbench.sh --transport local --port 8793
 # 确实要在本机跑那些命令（自检用）才加： --allow-local-commands
 ```
 
@@ -207,3 +205,29 @@ tools/flight_workbench/
 - 尚未接 PTY resize（面板尺寸变化不会同步 `stty`）；声音提示需要一次用户点击后才能播放。
 - 板端大文件与 ROS 日志仍由现场既有流程收集，工作台不改板端任何文件（只上传只读探针到
   `logs/flight_workbench/`）。
+
+## 2026-10-03 界面修复与离线复核
+
+- `flight` 主终端与下方运行日志各有自己的显示节点，二者可同时显示同一份输出；设备日志不混入任务日志。
+- 选择任务、切换 preview/flight、编辑参数后保留卡片滚动位置；状态刷新保留右栏位置。
+- 终端/运行日志分别按不区分大小写的关键词筛选，筛选输入不被遥测刷新抢焦点。当前筛选是文本行匹配，不是 JSON 字段查询。
+- 向上翻阅日志时暂停跟随；回到末尾或重新开启“自动滚动”后继续跟随。历史缓冲有上限，达到上限后最旧行会淘汰。
+- SSH 状态消息按字段合并，避免局部状态覆盖整份地址配置。`save_password=false` 不再误保存输入口令。
+- 离线预览的“连接”不发起 SSH；实机连接时使用默认模式启动服务。2026-10-03 本机预览地址为 `http://127.0.0.1:8793`，没有开启 `--allow-local-commands`。
+
+本轮验证（均没有连接板端或启动 ROS）：
+
+| 检查 | 结果 |
+|---|---|
+| `tests/test_review.py` | 18 项通过；设备、SSH、任务操作均 mock |
+| `tests/test_frontend.js` | 44 条命令一致性、22 次模拟请求、输入焦点通过 |
+| `tests/test_group_selection.js` | 10 个卡片入口与 7 类嵌套控件通过；九种专项，第五组多一个 mock 入口 |
+| `tests/browser_regression.mjs` | Chromium 22 项通过：可见输出、滚动、筛选、历史/自定义地址、密码仅送内存接口、离线连接拦截 |
+
+浏览器检查复用 Node 24 的内置 WebSocket 和本机 Chromium，无新依赖。先启动上述离线服务，再运行：
+
+```text
+node tools/flight_workbench/tests/browser_regression.mjs http://127.0.0.1:8793 <Chrome或Edge可执行文件路径>
+```
+
+浏览器测试在独立临时配置中运行，连接 API 被替换为本地桩，不启动试飞。WSL 无 Node 时可从 Windows 调用已有 Node；不要为此更改 ROS Python。

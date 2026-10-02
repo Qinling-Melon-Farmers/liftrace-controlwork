@@ -120,6 +120,17 @@ class ReviewTests(unittest.TestCase):
         with self.assertRaises(ValueError): self.wb.update_config({'host': 'test@other'})
         self.assertEqual(self.wb.target.host, original)
 
+    def test_unsaved_password_stays_in_memory(self):
+        with patch.object(self.wb, '_save_profile') as saved:
+            self.wb.update_config({'password': 'test-only', 'save_password': False})
+        saved.assert_not_called()
+        self.assertEqual(self.wb.target.password, 'test-only')
+
+    def test_explicit_password_save_remains_supported(self):
+        with patch.object(self.wb, '_save_profile') as saved:
+            self.wb.update_config({'password': 'test-only', 'save_password': True})
+        saved.assert_called_once_with(password=True)
+
     def test_auto_mission_false_is_error(self):
         tracker = wb_status.StageTracker()
         tracker.feed('AUTO_MISSION_START False rejected\n')

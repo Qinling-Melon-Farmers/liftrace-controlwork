@@ -64,7 +64,7 @@ pre { margin: 0; }
   top: 0;
   z-index: 40;
 }
-.brand { display: flex; align-items: center; gap: 8px; }
+.brand { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; min-width: 0; }
 .brand-mark {
   display: inline-flex; align-items: center; justify-content: center;
   width: 24px; height: 24px; border-radius: 6px;
@@ -92,7 +92,7 @@ pre { margin: 0; }
 
 /* 板端地址下拉（历史地址，来自现场部署记录与 memoir） */
 .host-select {
-  max-width: 330px; padding: 2px 6px; border-radius: 6px;
+  min-width: 200px; max-width: 330px; padding: 2px 6px; border-radius: 6px;
   border: 1px solid var(--line); background: var(--panel); color: var(--fg-dim);
   font-family: var(--mono); font-size: 11px;
 }
@@ -422,3 +422,6 @@ table.mini tr.miss td { color: var(--muted); }
 .field-grid label { color: var(--fg-dim); font-size: 12px; }
 .field-grid input { width: 100%; }
 .field-grid input[type="checkbox"] { width: auto; justify-self: start; }
+
+/* Scroll positions belong to the reader, not to DOM replacement/anchoring. */
+.pane-body, .term-out, .drawer-body { overflow-anchor: none; }

@@ -150,12 +150,30 @@ var state = {
   tabs: {},              // 终端面板 UI 状态（per terminal id）
   activeTerm: null,
   terms: {},             // id -> AnsiTerm
+  logTerm: null,         // independent read-only trial mirror (a DOM node has one parent)
   drawer: 'run',
   drawerCollapsed: false,
   reportText: ''
 };
 var ALERT_KEEP = 200;
 var TL_KEEP = 300;
+
+// Connection events are patches; keep host options and configuration from the snapshot.
+function mergeConnection(patch) {
+  if (patch) Object.assign(state.connection, patch);
+}
+
+function hostChoices() {
+  var c = state.connection || {};
+  var choices = (c.host_options || []).map(function (o) {
+    return { value: o.host, label: o.host + (o.label ? (' — ' + o.label) : '') };
+  });
+  if (c.host && !choices.some(function (o) { return o.value === c.host; })) {
+    choices.push({ value: c.host, label: c.host + ' — 当前自定义地址' });
+  }
+  choices.push({ value: '', label: '自定义地址…' });
+  return choices;
+}
 
 function connected() { return state.connection && state.connection.state === 'ok'; }
 
@@ -269,11 +287,21 @@ function AnsiTerm(opts) {
   this._filterMode = false;
   this.lines = 0;          // 收到过的行数（含新行）
   this.autoScroll = !!prefs.autoscroll;
-  this._onScroll = null;
-  this.scrollEl.addEventListener('scroll', function () { /* 由外部通过 stick() 控制 */ });
+  this.followTail = true;
+  this.savedScrollTop = 0;
+  var self = this;
+  this.scrollEl.addEventListener('scroll', function () {
+    if (!self.scrollEl.isConnected) return;
+    self.savedScrollTop = self.scrollEl.scrollTop;
+    self.followTail = self.scrollEl.scrollHeight - self.scrollEl.clientHeight - self.scrollEl.scrollTop < 24;
+  });
 }
+AnsiTerm.prototype.saveScroll = function () {
+  if (this.scrollEl.isConnected) this.savedScrollTop = this.scrollEl.scrollTop;
+};
 AnsiTerm.prototype.stick = function () {
-  if (this.autoScroll) this.scrollEl.scrollTop = this.scrollEl.scrollHeight;
+  this.scrollEl.scrollTop = (this.autoScroll && this.followTail)
+    ? this.scrollEl.scrollHeight : this.savedScrollTop;
 };
 AnsiTerm.prototype.append = function (data) {
   if (data === undefined || data === null) return;
@@ -425,14 +453,9 @@ AnsiTerm.prototype._lineNode = function (line) {
   return d;
 };
 AnsiTerm.prototype._renderTail = function (start) {
-  var keep = this.scrollEl.children[start];
-  if (keep) {
-    while (keep.nextSibling) this.scrollEl.removeChild(keep.nextSibling);
-    // keep 自身保留即可（其内容已渲染正确）；从 start 起重新写入会覆盖它
-    if (start > 0) this.scrollEl.removeChild(keep);
-  } else {
-    while (this.scrollEl.firstChild) this.scrollEl.removeChild(this.scrollEl.firstChild);
-  }
+  this.saveScroll();
+  // DOM indices match buf indices, including line zero and pure append batches.
+  while (this.scrollEl.children.length > start) this.scrollEl.removeChild(this.scrollEl.lastChild);
   var frag = document.createDocumentFragment();
   for (var i = start; i < this.buf.length; i++) frag.appendChild(this._lineNode(this.buf[i]));
   this.scrollEl.appendChild(frag);
@@ -441,25 +464,18 @@ AnsiTerm.prototype._renderTail = function (start) {
   this.stick();
   if (this.onAppend) this.onAppend(this);
 };
-AnsiTerm.prototype._renderAll = function (clearFirst) {
-  if (clearFirst) clear(this.scrollEl);
-  if (this._filterMode) {
-    var keep = this._filterRows();
-    clear(this.scrollEl);
-    var frag = document.createDocumentFragment();
-    for (var i = 0; i < keep.length; i++) frag.appendChild(keep[i]);
-    this.scrollEl.appendChild(frag);
-    this._rendered = this.buf.length;
-    this._staleTail = false;
-    this.stick();
-    if (this.onAppend) this.onAppend(this);
-    return;
-  }
+AnsiTerm.prototype._renderAll = function () {
+  this.saveScroll();
   clear(this.scrollEl);
-  var use = Math.max(0, this.buf.length - RENDER_TAIL);
-  var frag2 = document.createDocumentFragment();
-  for (var j = use; j < this.buf.length; j++) frag2.appendChild(this._lineNode(this.buf[j]));
-  this.scrollEl.appendChild(frag2);
+  var frag = document.createDocumentFragment();
+  if (this._filterMode) {
+    this._filterRows().forEach(function (row) { frag.appendChild(row); });
+  } else {
+    // buf is already bounded by maxLines; do not drop all but 200 DOM rows and
+    // then address that shortened DOM using absolute buffer indices.
+    for (var i = 0; i < this.buf.length; i++) frag.appendChild(this._lineNode(this.buf[i]));
+  }
+  this.scrollEl.appendChild(frag);
   this._rendered = this.buf.length;
   this._staleTail = false;
   this._dirtyFrom = -1;
@@ -489,6 +505,7 @@ AnsiTerm.prototype.setLineFilter = function (kw) {
 };
 AnsiTerm.prototype.setAutoScroll = function (on) {
   this.autoScroll = !!on;
+  if (on) this.followTail = true;
   this.stick();
 };
 AnsiTerm.prototype.clearView = function () {
@@ -548,7 +565,7 @@ function scheduleRender() {
     // Telemetry arrives every second; preserve input focus and IME composition.
     var active = document.activeElement;
     if (!(active && active.closest && active.closest('#groups-body'))) renderGroups();
-    if (!(active && active.closest && active.closest('.term-input'))) renderTerminals();
+    if (!(active && active.closest && active.closest('#term-body'))) renderTerminals();
     renderMonitor(); renderDrawer();
   });
 }
@@ -601,7 +618,7 @@ var bus = {
         renderMonitor();
         break;
       case 'connection':
-        state.connection = msg.connection || state.connection;
+        mergeConnection(msg.connection);
         scheduleRender();
         break;
       case 'toast':
@@ -615,7 +632,7 @@ var bus = {
     if (!data) return;
     var term = state.terms[sid];
     if (term) term.append(data);
-    if (sid !== 'trial' && state.terms.trial) state.terms.trial.append(data); // 中栏与底部日志一致性
+    if (sid === 'trial' && state.logTerm) state.logTerm.append(data);
   }
 };
 
@@ -660,12 +677,13 @@ function applySnapshot(snap) {
 
 /* hello / 重连时重建终端与标签，清空面板缓冲（旧缓冲按协议丢弃） */
 function initTermsFromSnapshot() {
+  state.logTerm = new AnsiTerm({ id: 'trial-log' });
   state.terms = { trial: new AnsiTerm({ id: 'trial' }) };
   state.terms.trial.autoScroll = !!prefs.autoscroll;
   state.terms.trial.onAppend = function () { /* 状态条由 render 刷新 */ };
   state.terms.trial.onTrim = function () { };
 
-  var tabs = {};
+  var tabs = { _log: state.tabs._log || { filter: '' } };
   state.terminals.forEach(function (t) {
     var term = new AnsiTerm({ id: t.id });
     term.autoScroll = !!prefs.autoscroll;
@@ -715,24 +733,17 @@ function renderHostSelect() {
   var sel = $('#host-select');
   if (!sel) return;
   var c = state.connection || {};
-  var options = c.host_options || [];
+  var options = hostChoices();
   var current = c.host || '';
-  var key = current + '|' + options.map(function (o) { return o.host + '~' + (o.label || ''); }).join(',');
+  var key = current + '|' + JSON.stringify(options);
   if (sel.getAttribute('data-key') !== key) {
     sel.setAttribute('data-key', key);
     clear(sel);
-    var has = false;
     options.forEach(function (o) {
-      var opt = el('option', null, o.host + (o.label ? (' — ' + o.label) : ''));
-      opt.value = o.host;
-      if (o.host === current) has = true;
+      var opt = el('option', null, o.label);
+      opt.value = o.value;
       sel.appendChild(opt);
     });
-    if (current && !has) {
-      var extra = el('option', null, current + ' — 当前（自定义）');
-      extra.value = current;
-      sel.appendChild(extra);
-    }
     sel.value = current;
   }
   sel.title = '板端 SSH 地址（历史地址来自现场部署记录与项目 memoir）。切换后记得点「连接」。';
@@ -833,6 +844,7 @@ function buildTrialCommand(g, mode, realRelease, checkConfig, speed) {
 function renderGroups() {
   var body = $('#groups-body');
   if (!body) return;
+  var scrollTop = body.scrollTop;
   clear(body);
   var groups = state.groups || [];
   var hint = $('#groups-hint');
@@ -848,6 +860,7 @@ function renderGroups() {
 
   var others = groups.filter(function (g) { return g.channel && g.channel !== 'site' && g.channel !== 'module'; });
   if (others.length) appendGroupSection(body, '其他任务组', others);
+  body.scrollTop = scrollTop;
 }
 
 function appendGroupSection(body, title, list) {
@@ -1087,6 +1100,8 @@ function renderTerminals() {
   });
   if (!list.length) tabsBox.appendChild(el('span', 'tiny muted', '等待快照…'));
 
+  // Preserve terminal history position when telemetry redraws its controls.
+  Object.keys(state.terms).forEach(function (id) { state.terms[id].saveScroll(); });
   // 内容区
   clear(bodyBox);
   var t = null;
@@ -1101,7 +1116,8 @@ function renderTerminals() {
   // 工具条
   var tool = el('div', 'term-tool');
   var startBtn = el('button', 'btn btn-sm btn-primary', '启动');
-  startBtn.disabled = !connected() || st.state === 'running' || st.state === 'starting';
+  startBtn.disabled = !connected() || t.id === 'trial' || st.state === 'running' || st.state === 'starting';
+  if (t.id === 'trial') startBtn.textContent = '从任务组启动';
   startBtn.title = 'POST /api/session/open {id:"' + t.id + '"}' + (t.confirm ? '，需带 confirm:"确认"' : '') + '\n' + (t.command || '');
   startBtn.addEventListener('click', function () { openTerminal(t); });
   var stopBtn = el('button', 'btn btn-sm', '停止');
@@ -1112,6 +1128,7 @@ function renderTerminals() {
   clearBtn.title = 'POST /api/session/clear {id:"' + t.id + '"}（清板端缓冲与本地视图）';
   clearBtn.addEventListener('click', function () {
     term.clearView();
+    if (t.id === 'trial' && state.logTerm) state.logTerm.clearView();
     act(api.sessionClear(t.id), '清屏 ' + t.title);
   });
   var ctrlCBtn = el('button', 'btn btn-sm', 'Ctrl+C');
@@ -1132,6 +1149,7 @@ function renderTerminals() {
     prefs.autoscroll = swi.checked;
     savePrefs();
     Object.keys(state.terms).forEach(function (k) { state.terms[k].setAutoScroll(swi.checked); });
+    if (state.logTerm) state.logTerm.setAutoScroll(swi.checked);
     var sa = $('#sw-autoscroll'); if (sa) sa.checked = swi.checked;
   });
   sw.appendChild(swi); sw.appendChild(el('span', null, '自动滚动'));
@@ -1157,8 +1175,18 @@ function renderTerminals() {
   bodyBox.appendChild(term.scrollEl);
   term.stick();
 
-  // 输入行
+  // Each view has its own filter; filtering the drawer must not hide flight output.
   var U = state.tabs[t.id] || (state.tabs[t.id] = { input: '', history: [], histIdx: -1 });
+  var filterRow = el('div', 'term-line-filter');
+  var filter = el('input'); filter.type = 'text'; filter.value = U.filter || '';
+  filter.placeholder = '筛选本终端关键字（不区分大小写）';
+  filter.addEventListener('input', function () { U.filter = filter.value; term.setLineFilter(U.filter); });
+  var resetFilter = el('button', 'btn btn-sm', '清除筛选');
+  resetFilter.addEventListener('click', function () { U.filter = ''; filter.value = ''; term.setLineFilter(''); });
+  filterRow.appendChild(filter); filterRow.appendChild(resetFilter); bodyBox.appendChild(filterRow);
+  term.setLineFilter(U.filter || '');
+
+  // 输入行
   var inRow = el('div', 'term-input');
   var inp = el('input');
   inp.type = 'text';
@@ -1236,6 +1264,9 @@ function kvRow(box, k, v, cls) {
 function renderMonitor() {
   var body = $('#monitor-body');
   if (!body) return;
+  var scrollTop = body.scrollTop;
+  var oldReport = body.querySelector('.report-pre');
+  var reportTop = oldReport ? oldReport.scrollTop : 0;
   var keepReport = state.reportText;
   clear(body);
 
@@ -1435,6 +1466,9 @@ function renderMonitor() {
   }
   sr.appendChild(srb);
   body.appendChild(sr);
+  body.scrollTop = scrollTop;
+  var newReport = body.querySelector('.report-pre');
+  if (newReport) newReport.scrollTop = reportTop;
 }
 
 function secHead(title, right) {
@@ -1536,6 +1570,13 @@ function renderDrawer() {
   var body = $('#drawer-body');
   var tools = $('#drawer-tools');
   if (!body || !tools) return;
+  // Keep the filter DOM/focus (including IME) and scroll on periodic updates.
+  if (state.drawer === 'run' && body.getAttribute('data-drawer') === 'run'
+      && state.logTerm && state.logTerm.scrollEl.parentNode === body) return;
+  var sameDrawer = body.getAttribute('data-drawer') === state.drawer;
+  var scrollTop = sameDrawer ? body.scrollTop : 0;
+  if (state.logTerm) state.logTerm.saveScroll();
+  body.setAttribute('data-drawer', state.drawer);
   clear(tools);
   clear(body);
 
@@ -1549,14 +1590,14 @@ function renderDrawer() {
     f.size = 40;
     f.addEventListener('input', function () {
       U.filter = f.value;
-      if (state.terms.trial) state.terms.trial.setLineFilter(f.value);
+      if (state.logTerm) state.logTerm.setLineFilter(f.value);
     });
     f.addEventListener('keydown', function (ev) { if (ev.key === 'Enter') ev.preventDefault(); });
     var clr = el('button', 'btn btn-sm btn-ghost', '清除过滤');
-    clr.addEventListener('click', function () { U.filter = ''; f.value = ''; if (state.terms.trial) state.terms.trial.setLineFilter(''); });
+    clr.addEventListener('click', function () { U.filter = ''; f.value = ''; if (state.logTerm) state.logTerm.setLineFilter(''); });
     tools.appendChild(el('span', 'tiny muted', 'trial 会话实时输出（只读）'));
     tools.appendChild(f); tools.appendChild(clr);
-    var t = state.terms.trial;
+    var t = state.logTerm;
     if (t) {
       body.appendChild(t.scrollEl);
       t.setLineFilter(U.filter || '');
@@ -1631,6 +1672,7 @@ function renderDrawer() {
     if (!state.timeline.length) body.appendChild(el('p', 'empty', '暂无操作时间线'));
     else body.appendChild(tb);
   }
+  body.scrollTop = scrollTop;
 }
 
 /* ==========================================================================
@@ -1772,22 +1814,49 @@ function openTerminal(t) {
   }
 }
 
-function doConnect() {
+function doConnect(custom) {
   var c = state.connection || {};
-  var cmdText = 'POST /api/connect\n' + JSON.stringify({ password: c.password_available ? '<可选，留空使用已保存口令>' : '<可选，留空使用免密登录>' });
-  var fields = [{ name: 'password', label: 'SSH 口令（可选）', type: 'password', placeholder: '留空则用已保存口令 / 免密' }];
-  formModal('连接板端', cmdText,
-    '目标：' + (c.host || '未配置') + '\n口令只用于本次请求，绝不写入浏览器存储。',
+  var fields = [
+    { name: 'host', label: 'SSH 地址（历史）', type: 'select', value: custom === true ? '' : c.host,
+      options: hostChoices() },
+    { name: 'host_custom', label: '自定义地址（优先）', placeholder: 'IP / 主机名，也支持 user@host' },
+    { name: 'user', label: 'SSH 用户名', value: c.user || 'orangepi' },
+    { name: 'port', label: 'SSH 端口', type: 'number', value: c.port || 22 },
+    { name: 'password', label: 'SSH 密码（可选）', type: 'password', placeholder: '留空使用当前口令 / 密钥' }
+  ];
+  formModal('连接板端', '先保存所选地址，再检查 SSH 连接；不启动飞行或设备。',
+    '自定义地址留空时使用下拉选项。密码只留在当前工作台进程内存，不写入文件或浏览器存储。',
     fields, '连接').then(function (vals) {
     if (!vals) return;
-    state.connection.state = 'checking';
-    renderTopbar();
-    var body = {};
-    if (vals.password) body.password = vals.password;
-    act(api.connect(body), '连接').then(function (r) {
-      if (r && r.connection) state.connection = r.connection;
-      scheduleRender();
-      if (r && r.ok) toast('ok', '已连接 ' + (state.connection.host || ''));
+    var customHost = String(vals.host_custom || '').trim();
+    var host = customHost || String(vals.host || '').trim();
+    var user = String(vals.user || '').trim();
+    if (host.indexOf('@') >= 0) {
+      if (customHost) user = host.slice(0, host.lastIndexOf('@'));
+      host = host.slice(host.lastIndexOf('@') + 1);
+    }
+    var port = Number(vals.port);
+    if (!host || !/^[a-zA-Z0-9.:[\]_-]+$/.test(host) || host.charAt(0) === '-' ||
+        !/^[a-zA-Z0-9_][a-zA-Z0-9_.-]*$/.test(user) || !Number.isInteger(port) || port < 1 || port > 65535) {
+      toast('warn', '请填写有效的地址、用户名和 1–65535 范围内的端口');
+      return;
+    }
+    if (c.transport === 'local') {
+      toast('info', '当前是离线预览。要连接板端，请用默认 SSH 模式启动工作台；本次未连接。');
+      return;
+    }
+    act(api.config({ host: user + '@' + host, port: port }), '保存连接地址').then(function (cfg) {
+      if (!cfg || !cfg.ok) return;
+      mergeConnection(cfg.connection);
+      state.connection.state = 'checking';
+      renderTopbar();
+      var body = {};
+      if (vals.password) body.password = vals.password;
+      act(api.connect(body), '连接').then(function (r) {
+        if (r && r.connection) mergeConnection(r.connection);
+        scheduleRender();
+        if (r && r.ok) toast('ok', '已连接 ' + (state.connection.host || ''));
+      });
     });
   });
 }
@@ -1803,12 +1872,9 @@ function doConfig() {
     '这些参数决定 SSH 目标与板端工程根目录；修改后需要重新连接。口令不会写入浏览器 localStorage。\n'
     + 'host 下拉是现场用过的历史地址；要用清单外的地址，在「host（自定义）」里直接填（填了就覆盖下拉选择）。',
     [
-      { name: 'host', label: 'host（历史地址）', type: 'select', value: c.host || '',
-        options: (c.host_options || []).map(function (o) {
-          return { value: o.host, label: o.host + (o.label ? (' — ' + o.label) : '') };
-        }).concat([{ value: '', label: '（不在清单里 → 用下面的自定义）' }]) },
+      { name: 'host', label: 'host（历史地址）', type: 'select', value: c.host || '', options: hostChoices() },
       { name: 'host_custom', label: 'host（自定义，可留空）', value: '', placeholder: 'orangepi@192.168.43.59' },
-      { name: 'user', label: 'user', value: c.user || 'orangepi' },
+
       { name: 'port', label: 'port', value: c.port || 22 },
       { name: 'board_root', label: 'board_root', value: c.board_root || '' },
       { name: 'site_dir', label: 'site_dir', value: c.site_dir || '' },
@@ -1816,7 +1882,7 @@ function doConfig() {
       { name: 'model', label: 'model', value: c.model || '' },
       { name: 'metadata', label: 'metadata', value: c.metadata || '' },
       { name: 'password', label: '口令（可选）', type: 'password' },
-      { name: 'save_password', label: '保存口令到板端 profile', type: 'checkbox', value: false }
+      { name: 'save_password', label: '记住口令（仅本机，仓库外）', type: 'checkbox', value: false }
     ], '保存').then(function (vals) {
     if (!vals) return;
     vals.port = parseInt(vals.port, 10) || 22;
@@ -1827,7 +1893,7 @@ function doConfig() {
       return;
     }
     act(api.config(vals), '保存连接参数').then(function (r) {
-      if (r && r.connection) state.connection = r.connection;
+      if (r && r.connection) mergeConnection(r.connection);
       if (r && r.profile) state.profile = r.profile;
       scheduleRender();
     });
@@ -1916,6 +1982,7 @@ function startTrial(g, mode) {
     if (!res || !res.confirmed) return;
     act(api.trialStart(body), '启动试飞').then(function (r) {
       if (r && r.trial) state.trial = r.trial;
+      if (r && r.ok) state.activeTerm = 'trial';
       scheduleRender();
       if (r && r.ok) toast('ok', '试飞入口已下发：' + g.name);
     });
@@ -1936,14 +2003,15 @@ function doTrialStop() {
  * ========================================================================== */
 
 function bindUI() {
-  $('#btn-connect').addEventListener('click', doConnect);
+  $('#btn-connect').addEventListener('click', function () { doConnect(false); });
+  $('#btn-config').addEventListener('click', doConfig);
   var hostSel = $('#host-select');
   if (hostSel) {
     hostSel.addEventListener('change', function () {
       var host = hostSel.value;
-      if (!host) return;
+      if (!host) { hostSel.value = state.connection.host || ''; doConnect(true); return; }
       act(api.config({ host: host }), '切换板端地址').then(function (r) {
-        if (r && r.connection) state.connection = r.connection;
+        if (r && r.connection) mergeConnection(r.connection);
         if (r && r.profile) state.profile = r.profile;
         scheduleRender();
         if (r && r.ok) toast('info', '板端地址已切到 ' + host + '，点「连接」开始检查');
@@ -1975,6 +2043,7 @@ function bindUI() {
   swAuto.addEventListener('change', function () {
     prefs.autoscroll = swAuto.checked; savePrefs();
     Object.keys(state.terms).forEach(function (k) { state.terms[k].setAutoScroll(swAuto.checked); });
+    if (state.logTerm) state.logTerm.setAutoScroll(swAuto.checked);
     Object.keys(state.tabs).forEach(function (k) { if (state.tabs[k]) state.tabs[k].autoScroll = swAuto.checked; });
     renderTerminals();
   });

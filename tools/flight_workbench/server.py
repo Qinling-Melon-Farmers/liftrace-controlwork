@@ -311,7 +311,7 @@ class Workbench(object):
             self._save_profile(password=False)
         if body.get("password"):
             self.target.password = body["password"]
-        if body.get("save_password") is not None:
+        if body.get("save_password"):
             self._save_profile(password=bool(body.get("password")))
         self.connection.update({"host": self.target.host, "port": self.target.port})
         self.broadcast({"t": "connection", "connection": self.snapshot(include_logs=False)["connection"]})
