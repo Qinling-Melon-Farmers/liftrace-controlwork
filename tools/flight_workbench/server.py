@@ -184,6 +184,7 @@ class Workbench(object):
                     "transport": self.target.transport,
                     "password_available": bool(self.target.password),
                     "auto_password": bool(self.target.auto_password),
+                    "host_options": wb_board.host_options(self.config),
                 }),
                 "profile": {"path": wb_board.profile_path(),
                             "auto_password": bool(self.target.auto_password),
@@ -290,6 +291,8 @@ class Workbench(object):
             connection["auto_password"] = bool(body["auto_password"])
         if body.get("host"):
             self.target.host = body["host"]
+            # 从「板端地址」下拉选中的地址要落到本机 profile，下次启动仍是它（不写回仓库配置）
+            self._save_profile(password=False)
         if body.get("password"):
             self.target.password = body["password"]
         if body.get("save_password") is not None:
@@ -792,10 +795,17 @@ def main():
     parser.add_argument("--password-file", default=None,
                         help="从文件读取一次口令（也可用 ORANGEPI_SSH_PASSWORD 环境变量）")
     parser.add_argument("--open", action="store_true", help="启动后尝试打开浏览器")
+    parser.add_argument("--profile-dir", default=None,
+                        help="状态目录（profile/日志/回报）；默认 ~/.config/liftrace-flight-workbench，"
+                             "自检或离线预览时指向临时目录可避免动到真实状态")
     parser.add_argument("--auto-confirm-servo", action="store_true",
                         help="一键启动设备时把舵机两个可选终端也纳入流程（会复位机构，需现场确认）")
     options = parser.parse_args()
 
+    global PROFILE_DIR
+    if options.profile_dir:
+        PROFILE_DIR = os.path.abspath(os.path.expanduser(options.profile_dir))
+        wb_board.DEFAULT_PROFILE_DIR = PROFILE_DIR
     config = wb_board.load_config(options.config)
     profile = wb_board.load_profile()
     wb_board.apply_profile(config, profile)

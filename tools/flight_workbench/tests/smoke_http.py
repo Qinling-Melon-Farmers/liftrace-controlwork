@@ -5,9 +5,11 @@
 """
 import json
 import os
+import shutil
 import socket
 import subprocess
 import sys
+import tempfile
 import time
 import urllib.error
 import urllib.request
@@ -54,10 +56,12 @@ def main():
     global PORT, BASE
     PORT = free_port(PORT)
     BASE = "http://127.0.0.1:%d" % PORT
+    profile_dir = tempfile.mkdtemp(prefix="wb-smoke-profile-")
     log_path = "/tmp/wb_smoke_http.log"
     with open(log_path, "w", encoding="utf-8") as log:
         process = subprocess.Popen([sys.executable, os.path.join(TOOL_DIR, "server.py"),
                                     "--transport", "local", "--port", str(PORT),
+                                    "--profile-dir", profile_dir,
                                     "--allow-local-commands"],
                                    cwd=TOOL_DIR, stdout=log, stderr=subprocess.STDOUT)
     try:
@@ -84,8 +88,18 @@ def main():
         status, body = request("/api/config", "POST",
                                {"host": "orangepi@192.168.3.15", "board_root":
                                 "/home/orangepi/liftrace_board_trials_20260928"})
-        check("POST /api/config", status == 200 and json.loads(body).get("ok"),
-              "HTTP %s" % status)
+        config_ok = status == 200 and json.loads(body).get("ok")
+        check("POST /api/config", config_ok, "HTTP %s" % status)
+
+        status, body = request("/api/snapshot")
+        connection = (json.loads(body).get("connection") or {})
+        options = connection.get("host_options") or []
+        hosts = [item.get("host") for item in options]
+        check("快照带历史地址清单（含外场当前 192.168.43.99）",
+              "orangepi@192.168.43.99" in hosts and "orangepi@10.231.47.193" in hosts,
+              "共 %d 项：%s" % (len(hosts), ", ".join(hosts[:3])))
+        check("切换后的 host 生效", connection.get("host") == "orangepi@192.168.3.15",
+              str(connection.get("host")))
 
         status, body = request("/api/trial/start", "POST",
                                {"group_id": "site5", "mode": "flight"})
@@ -124,6 +138,7 @@ def main():
             process.wait(timeout=10)
         except subprocess.TimeoutExpired:
             process.kill()
+        shutil.rmtree(profile_dir, ignore_errors=True)
 
     failed = RESULTS.count(False)
     print("\n%d 项检查，%d 项失败" % (len(RESULTS), failed))

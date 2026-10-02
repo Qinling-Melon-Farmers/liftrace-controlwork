@@ -8,8 +8,10 @@
     cd tools/flight_workbench && python3 tests/selfcheck.py
 """
 import os
+import shutil
 import subprocess
 import sys
+import tempfile
 import time
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -19,6 +21,11 @@ sys.path.insert(0, TOOL_DIR)
 import server  # noqa: E402
 import wb_board  # noqa: E402
 import wb_status  # noqa: E402
+
+# 自检不碰真实状态目录（profile/日志/回报）
+_TMP_STATE = tempfile.mkdtemp(prefix="wb-selfcheck-state-")
+server.PROFILE_DIR = _TMP_STATE
+wb_board.DEFAULT_PROFILE_DIR = _TMP_STATE
 
 FAKE = os.path.join(HERE, "fake_board")
 RESULTS = []
@@ -119,6 +126,19 @@ def main():
     result = workbench.connect({})
     check("连接自检（纸板工程 + rospy shim）", result.get("ok"), workbench.connection.get("detail"))
 
+    # 1b) 历史外场地址清单 + 切换
+    snapshot = workbench.snapshot()
+    hosts = [item["host"] for item in snapshot["connection"]["host_options"]]
+    check("快照暴露历史外场地址（含 192.168.43.99）",
+          "orangepi@192.168.43.99" in hosts and len(hosts) >= 6,
+          "共 %d 项" % len(hosts))
+    workbench.update_config({"host": "orangepi@192.168.3.15"})
+    check("切换板端地址后 target 同步",
+          workbench.target.host == "orangepi@192.168.3.15"
+          and workbench.snapshot()["connection"]["host"] == "orangepi@192.168.3.15",
+          workbench.target.host)
+    workbench.update_config({"host": "orangepi@192.168.43.99"})
+
     # 2) 单实例检查
     preflight = workbench.refresh_preflight()
     check("单实例检查返回结构化结果", bool(preflight and preflight.get("checks")),
@@ -202,6 +222,7 @@ def main():
                            for s in workbench.sessions.sessions.values()), timeout=15)
     check("全部会话可停止", all(s.state not in ("running", "starting")
                                 for s in workbench.sessions.sessions.values()))
+    shutil.rmtree(_TMP_STATE, ignore_errors=True)
 
     failed = [name for ok, name, _ in RESULTS if not ok]
     print("\n%d 项检查，%d 项失败%s" % (len(RESULTS), len(failed),

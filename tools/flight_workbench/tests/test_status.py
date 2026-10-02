@@ -252,5 +252,42 @@ class CommandBuildTest(unittest.TestCase):
             self.assertTrue(command.startswith("bash "))
 
 
+class HostOptionsTest(unittest.TestCase):
+    """外场地址：默认是当前现场地址，历史地址作为可选清单。"""
+
+    HISTORICAL = ("orangepi@192.168.43.99", "orangepi@192.168.3.15",
+                  "orangepi@192.168.43.59", "orangepi@192.168.156.193",
+                  "orangepi@10.231.47.193", "orangepi@192.168.3.126")
+
+    def test_default_host_is_current_field_address(self):
+        self.assertEqual(CONFIG["connection"]["host"], "orangepi@192.168.43.99")
+
+    def test_historical_addresses_are_options(self):
+        options = CONFIG["connection"]["host_options"]
+        hosts = [item["host"] for item in options]
+        for host in self.HISTORICAL:
+            self.assertIn(host, hosts)
+        self.assertEqual(len(hosts), len(set(hosts)), "地址清单不应重复")
+        self.assertTrue(all(item["label"] for item in options), "每项都应有出处说明")
+        self.assertEqual(hosts[0], CONFIG["connection"]["host"], "当前地址应排在最前")
+
+    def test_host_options_helper_handles_strings_and_custom_current(self):
+        config = {"connection": {"host": "orangepi@10.0.0.9",
+                                 "host_options": ["orangepi@192.168.3.15",
+                                                  {"host": "orangepi@192.168.3.15", "label": "重复项"},
+                                                  {"host": "", "label": "空项"},
+                                                  {"host": "orangepi@192.168.43.99", "label": "外场"}]}}
+        options = wb_board.host_options(config)
+        hosts = [item["host"] for item in options]
+        self.assertEqual(hosts, ["orangepi@10.0.0.9", "orangepi@192.168.3.15",
+                                 "orangepi@192.168.43.99"])
+        self.assertEqual(options[0]["label"], "当前配置")
+
+    def test_profile_can_override_host(self):
+        config = {"connection": {"host": "orangepi@192.168.43.99", "host_options": []}}
+        wb_board.apply_profile(config, {"host": "orangepi@192.168.3.15"})
+        self.assertEqual(config["connection"]["host"], "orangepi@192.168.3.15")
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

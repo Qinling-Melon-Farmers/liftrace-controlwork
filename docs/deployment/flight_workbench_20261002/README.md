@@ -8,7 +8,7 @@
 
 | 需求 | 工作台实现 |
 |---|---|
-| SSH 连接 | 顶栏「连接」，做板端登录自检（工程根 / 现场环境脚本 / 模型 / 录像空间 / ROS Python） |
+| SSH 连接 | 顶栏「板端地址」下拉（默认外场当前 `orangepi@192.168.43.99`，另含 3.15 / 43.59 / 156.193 / 10.231.47.193 / 3.126 五个历史地址并标注出处）+「连接」做板端登录自检（工程根 / 现场环境脚本 / 模型 / 录像空间 / ROS Python）；选中地址写回本机 profile，不改仓库配置 |
 | 各终端启动 | 六个常驻终端 + 监测终端各一个 tab（真实 `ssh -tt` 会话），支持「一键启动设备」按 roscore→MAVROS→雷达→相机 顺序启动并逐项等待就绪 |
 | 任务组选择与启动 | 左栏现场组号 1–6 与模块目录 01–09；启动前显示**完整命令**，flight 需勾选现场条件，实投需输入确认词「实投」 |
 | 初始化监控 | 实时解析 `INITIALIZING` 里的 `pose_samples`/`camera_info`/`image_seen`/`compressed_fresh`/定位一致性原因 |
@@ -28,10 +28,10 @@
 
 ```bash
 cd tools/flight_workbench
-python3 tests/test_status.py     # 25 项
+python3 tests/test_status.py     # 29 项（含外场地址清单）
 python3 tests/test_probe.py      # 10 项（假 rospy，验证板端探针取值与"只订阅不下发"）
-python3 tests/selfcheck.py       # 21 项（纸板工程端到端）
-python3 tests/smoke_http.py      # 13 项（真起服务：接口/静态文件/SSE/安全拒绝）
+python3 tests/selfcheck.py       # 23 项（纸板工程端到端，含地址切换）
+python3 tests/smoke_http.py      # 15 项（真起服务：接口/静态文件/SSE/安全拒绝/地址清单）
 ```
 
 纸板工程按 `run_trial.py` 的真实输出格式回放 `INITIALIZING → MAPPING_READY → READY →

@@ -90,6 +90,14 @@ pre { margin: 0; }
 .chip-failed .dot { background: var(--red); }
 @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: .35; } }
 
+/* 板端地址下拉（历史地址，来自现场部署记录与 memoir） */
+.host-select {
+  max-width: 330px; padding: 2px 6px; border-radius: 6px;
+  border: 1px solid var(--line); background: var(--panel); color: var(--fg-dim);
+  font-family: var(--mono); font-size: 11px;
+}
+.host-select:disabled { opacity: .5; }
+
 /* ---------- 按钮 / 开关 ---------- */
 
 .btn {

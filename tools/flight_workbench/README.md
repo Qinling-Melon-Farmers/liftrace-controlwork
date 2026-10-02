@@ -26,15 +26,28 @@ bash tools/flight_workbench/start_workbench.sh --port 8792 --open
 
 连接板端：
 
-1. 在页面顶栏点「连接」，或先用 `--password-file`／环境变量给一次口令：
+1. 在页面顶栏的**板端地址**下拉里选现场地址（默认 `orangepi@192.168.43.99`），再点「连接」；
+   或先用 `--password-file`／环境变量给一次口令：
    ```bash
    ORANGEPI_SSH_PASSWORD=... bash tools/flight_workbench/start_workbench.sh
    bash tools/flight_workbench/start_workbench.sh --password-file ~/.orangepi.pass   # 文件须在仓库外
    ```
 2. 口令只留在服务进程内存里，用于自动回应 `password:`/`[sudo] password` 提示；勾选"记住"
    才会写到 `~/.config/liftrace-flight-workbench/profile.json`（0600，不在仓库内）。
-3. 地址默认取 `workbench.yaml` 的 `connection.host`（现场最近为 `orangepi@192.168.3.15`，
-   历史还有 `192.168.43.59`/`10.231.47.193`），换网络后在界面上直接改。
+3. 地址默认取 `workbench.yaml` 的 `connection.host`（外场当前 `orangepi@192.168.43.99`）。
+   下拉里的历史地址来自现场部署记录与项目 memoir，选中即写回本机 profile（不改仓库文件）：
+
+   | 地址 | 出处 |
+   |---|---|
+   | `orangepi@192.168.43.99` | 外场当前（2026-10-01 第五组实投） |
+   | `orangepi@192.168.3.15` | 2026-10-01 现场操作手册 / 九组部署 |
+   | `orangepi@192.168.43.59` | 2026-09-28~29 现场（site_20260928） |
+   | `orangepi@192.168.156.193` | 2026-09-28 现场部署（当时的新 IP） |
+   | `orangepi@10.231.47.193` | 2026-09-20 现场（onboard_obstacle_reference） |
+   | `orangepi@192.168.3.126` | 2026-09-20 旧板端（r64 基线） |
+
+   清单外的地址：连接参数对话框里的「host（自定义）」直接填，或改 `workbench.yaml` 的
+   `connection.host_options`（新增现场地址时一并补 label 说明出处）。
 
 不带板端也能先看界面（本机预览模式：**只渲染界面，默认拒绝执行任何设备/入口命令**）：
 
@@ -119,10 +132,10 @@ bash tools/flight_workbench/start_workbench.sh --transport local
 
 ```bash
 cd tools/flight_workbench
-python3 tests/test_status.py     # 25 项：阶段解析、告警节流、就绪判定、命令拼装
+python3 tests/test_status.py     # 29 项：阶段解析、告警节流、就绪判定、命令拼装、地址清单
 python3 tests/test_probe.py      # 10 项：板端探针（假 rospy，含"只订阅不下发"边界）
-python3 tests/selfcheck.py       # 21 项：纸板工程端到端（会话→编排→READY→回报→产物→SSE）
-python3 tests/smoke_http.py      # 13 项：真起服务，检查接口/静态文件/SSE/安全拒绝
+python3 tests/selfcheck.py       # 23 项：纸板工程端到端（会话→编排→READY→回报→产物→SSE）
+python3 tests/smoke_http.py      # 15 项：真起服务，检查接口/静态文件/SSE/安全拒绝/地址切换
 ```
 
 `tests/fake_board/` 是纸板工程，按 `run_trial.py` 的真实输出格式回放一遍

@@ -705,11 +705,40 @@ var STAGE_LABELS = {
   UNKNOWN: '未知'
 };
 
+/* 板端地址下拉：列出 memoir/现场部署记录里出现过的历史 SSH 地址 */
+function renderHostSelect() {
+  var sel = $('#host-select');
+  if (!sel) return;
+  var c = state.connection || {};
+  var options = c.host_options || [];
+  var current = c.host || '';
+  var key = current + '|' + options.map(function (o) { return o.host + '~' + (o.label || ''); }).join(',');
+  if (sel.getAttribute('data-key') !== key) {
+    sel.setAttribute('data-key', key);
+    clear(sel);
+    var has = false;
+    options.forEach(function (o) {
+      var opt = el('option', null, o.host + (o.label ? (' — ' + o.label) : ''));
+      opt.value = o.host;
+      if (o.host === current) has = true;
+      sel.appendChild(opt);
+    });
+    if (current && !has) {
+      var extra = el('option', null, current + ' — 当前（自定义）');
+      extra.value = current;
+      sel.appendChild(extra);
+    }
+    sel.value = current;
+  }
+  sel.title = '板端 SSH 地址（历史地址来自现场部署记录与项目 memoir）。切换后记得点「连接」。';
+}
+
 function renderTopbar() {
   var c = state.connection || {};
   var chip = $('#conn-chip');
   var st = c.state || 'unknown';
   chip.className = 'chip chip-' + st;
+  renderHostSelect();
   var hostEl = $('#conn-host');
   hostEl.textContent = (c.host || '未配置') + (c.port ? (':' + c.port) : '') + ' · ' + ({
     unknown: '未连接', checking: '检查中', ok: '正常', failed: '失败'
@@ -1665,12 +1694,23 @@ function formModal(title, command, note, fields, okLabel) {
     var grid = el('div', 'field-grid');
     fields.forEach(function (f) {
       grid.appendChild(el('label', null, f.label));
-      var inp = el('input');
-      inp.type = f.type || 'text';
-      inp.value = f.value === undefined || f.value === null ? '' : String(f.value);
+      var inp;
+      if (f.type === 'select') {
+        inp = el('select');
+        (f.options || []).forEach(function (o) {
+          var opt = el('option', null, o.label === undefined ? o.value : o.label);
+          opt.value = o.value;
+          inp.appendChild(opt);
+        });
+        inp.value = f.value === undefined || f.value === null ? '' : String(f.value);
+      } else {
+        inp = el('input');
+        inp.type = f.type || 'text';
+        inp.value = f.value === undefined || f.value === null ? '' : String(f.value);
+        if (f.placeholder) inp.placeholder = f.placeholder;
+        if (f.type === 'checkbox') { inp.checked = !!f.value; inp.style.width = 'auto'; }
+      }
       inp.setAttribute('data-field', f.name);
-      if (f.placeholder) inp.placeholder = f.placeholder;
-      if (f.type === 'checkbox') { inp.checked = !!f.value; inp.style.width = 'auto'; }
       grid.appendChild(inp);
     });
     mo.body.appendChild(grid);
@@ -1742,9 +1782,14 @@ function doConfig() {
     auto_password: '<bool>', save_password: '<bool>'
   }, null, 2);
   formModal('连接参数（engineer only）', cmdText,
-    '这些参数决定 SSH 目标与板端工程根目录；修改后需要重新连接。口令不会写入浏览器 localStorage。',
+    '这些参数决定 SSH 目标与板端工程根目录；修改后需要重新连接。口令不会写入浏览器 localStorage。\n'
+    + 'host 下拉是现场用过的历史地址；要用清单外的地址，在「host（自定义）」里直接填（填了就覆盖下拉选择）。',
     [
-      { name: 'host', label: 'host', value: c.host || '', placeholder: 'orangepi@192.168.3.15' },
+      { name: 'host', label: 'host（历史地址）', type: 'select', value: c.host || '',
+        options: (c.host_options || []).map(function (o) {
+          return { value: o.host, label: o.host + (o.label ? (' — ' + o.label) : '') };
+        }).concat([{ value: '', label: '（不在清单里 → 用下面的自定义）' }]) },
+      { name: 'host_custom', label: 'host（自定义，可留空）', value: '', placeholder: 'orangepi@192.168.43.99' },
       { name: 'user', label: 'user', value: c.user || 'orangepi' },
       { name: 'port', label: 'port', value: c.port || 22 },
       { name: 'board_root', label: 'board_root', value: c.board_root || '' },
@@ -1757,6 +1802,12 @@ function doConfig() {
     ], '保存').then(function (vals) {
     if (!vals) return;
     vals.port = parseInt(vals.port, 10) || 22;
+    if (vals.host_custom && String(vals.host_custom).trim()) vals.host = String(vals.host_custom).trim();
+    delete vals.host_custom;
+    if (!vals.host) {
+      toast('warn', 'host 为空：请从下拉选一个历史地址，或填写自定义地址');
+      return;
+    }
     act(api.config(vals), '保存连接参数').then(function (r) {
       if (r && r.connection) state.connection = r.connection;
       if (r && r.profile) state.profile = r.profile;
@@ -1868,6 +1919,19 @@ function doTrialStop() {
 
 function bindUI() {
   $('#btn-connect').addEventListener('click', doConnect);
+  var hostSel = $('#host-select');
+  if (hostSel) {
+    hostSel.addEventListener('change', function () {
+      var host = hostSel.value;
+      if (!host) return;
+      act(api.config({ host: host }), '切换板端地址').then(function (r) {
+        if (r && r.connection) state.connection = r.connection;
+        if (r && r.profile) state.profile = r.profile;
+        scheduleRender();
+        if (r && r.ok) toast('info', '板端地址已切到 ' + host + '，点「连接」开始检查');
+      });
+    });
+  }
   $('#btn-disconnect').addEventListener('click', function () {
     confirmModal('断开板端', 'POST /api/disconnect {}', '断开 SSH 连接；不会停止板端已经运行的节点。', '断开').then(function (res) {
       if (!res || !res.confirmed) return;

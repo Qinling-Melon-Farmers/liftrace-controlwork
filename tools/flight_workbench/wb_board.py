@@ -31,7 +31,30 @@ def load_config(path=None):
     config.setdefault("checks", {})
     config.setdefault("terminals", [])
     config.setdefault("groups", [])
+    config["connection"]["host_options"] = host_options(config)
     return config
+
+
+def host_options(config):
+    """历史外场 SSH 地址（界面下拉用）。只接受 {host, label} 形状，去重保序。"""
+    options = []
+    seen = set()
+    for item in (config.get("connection", {}).get("host_options") or []):
+        if isinstance(item, str):
+            host, label = item, ""
+        elif isinstance(item, dict):
+            host, label = item.get("host"), item.get("label", "")
+        else:
+            continue
+        host = (host or "").strip()
+        if not host or host in seen:
+            continue
+        seen.add(host)
+        options.append({"host": host, "label": str(label or "")})
+    current = (config.get("connection", {}).get("host") or "").strip()
+    if current and current not in seen:
+        options.insert(0, {"host": current, "label": "当前配置"})
+    return options
 
 
 def substitute(template, variables):
