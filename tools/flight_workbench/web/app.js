@@ -867,6 +867,11 @@ function groupCard(g) {
   var top = el('div', 'grp-top');
   top.appendChild(el('span', 'badge badge-info', g.key || g.id));
   top.appendChild(el('span', 'grp-title', g.name || g.id));
+  var selectBtn = el('button', 'btn btn-sm grp-select', sel ? '已选择' : '选择此组');
+  selectBtn.disabled = sel;
+  selectBtn.title = '选择要查看和操作的任务组；不会启动任务或替换正在运行的试飞';
+  selectBtn.addEventListener('click', selectGroup);
+  top.appendChild(selectBtn);
   card.appendChild(top);
   if (g.plan) card.appendChild(el('div', 'grp-plan', 'plan：' + g.plan));
   if (g.ending) card.appendChild(el('div', 'grp-ending', 'ending：' + g.ending));
@@ -1029,10 +1034,17 @@ function groupCard(g) {
   if (g.notes) ops.appendChild(el('div', 'tiny muted wrap-any', '备注：' + g.notes));
 
   card.appendChild(ops);
-  if (sel) {
-    card.addEventListener('click', function (ev) {
-      if (ev.target && ev.target.tagName && /INPUT|BUTTON|SELECT|TEXTAREA|SUMMARY/.test(ev.target.tagName)) return;
-    });
+  card.addEventListener('click', function (ev) {
+    if (ev.target && ev.target.closest('button,input,select,textarea,label,a,details')) return;
+    selectGroup();
+  });
+  function selectGroup() {
+    if (state.selectedGroup === g.id) return;
+    state.selectedGroup = g.id;
+    prefs.group_id = g.id;
+    savePrefs();
+    renderGroups();
+    renderMonitor();
   }
   return card;
 }
@@ -1432,7 +1444,7 @@ function secHead(title, right) {
   return h;
 }
 
-/* 启动任务：只在 READY / IN_FLIGHT / DISARMED 允许，且必须人工点一次 + 二次确认。
+/* 启动任务：只在 READY / IN_FLIGHT 允许，且必须人工点一次 + 二次确认。
  * 后端 mission_start 的允许阶段与这里保持一致，并会再校验一次。 */
 var MISSION_STAGES = ['READY', 'IN_FLIGHT'];
 function missionStartSection(stage) {
@@ -1440,7 +1452,7 @@ function missionStartSection(stage) {
   var stageOk = MISSION_STAGES.indexOf(st) >= 0;
   var cur = null;
   (state.groups || []).forEach(function (gg) {
-    if (gg.id === state.selectedGroup || (!cur && gg.manual_mission_start)) cur = cur || gg;
+    if (gg.id === state.trial.group_id) cur = gg;
   });
   var manual = !!(cur && cur.manual_mission_start);
   var tSess = state.sessions.trial || {};
@@ -1795,7 +1807,7 @@ function doConfig() {
         options: (c.host_options || []).map(function (o) {
           return { value: o.host, label: o.host + (o.label ? (' — ' + o.label) : '') };
         }).concat([{ value: '', label: '（不在清单里 → 用下面的自定义）' }]) },
-      { name: 'host_custom', label: 'host（自定义，可留空）', value: '', placeholder: 'orangepi@192.168.43.99' },
+      { name: 'host_custom', label: 'host（自定义，可留空）', value: '', placeholder: 'orangepi@192.168.43.59' },
       { name: 'user', label: 'user', value: c.user || 'orangepi' },
       { name: 'port', label: 'port', value: c.port || 22 },
       { name: 'board_root', label: 'board_root', value: c.board_root || '' },

@@ -261,7 +261,7 @@ class HostOptionsTest(unittest.TestCase):
                   "orangepi@10.231.47.193", "orangepi@192.168.3.126")
 
     def test_default_host_is_current_field_address(self):
-        self.assertEqual(CONFIG["connection"]["host"], "orangepi@192.168.43.99")
+        self.assertEqual(CONFIG["connection"]["host"], "orangepi@192.168.43.59")
 
     def test_historical_addresses_are_options(self):
         options = CONFIG["connection"]["host_options"]

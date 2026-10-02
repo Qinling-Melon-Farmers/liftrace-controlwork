@@ -184,7 +184,8 @@ input:focus, select:focus { outline: 1px solid var(--accent); outline-offset: 0;
   margin-bottom: 8px;
 }
 .grp-card.sel { border-color: var(--accent); box-shadow: 0 0 0 1px #1f6feb55 inset; background: #1b2738; }
-.grp-top { display: flex; align-items: baseline; gap: 6px; }
+.grp-top { display: flex; align-items: baseline; gap: 6px; flex-wrap: wrap; }
+.grp-select { margin-left: auto; }
 .grp-title { font-size: 13px; font-weight: 600; }
 .grp-plan { font-size: 11.5px; color: var(--fg-dim); margin-top: 3px; overflow-wrap: anywhere; }
 .grp-ending { font-size: 11.5px; color: var(--muted); margin-top: 2px; overflow-wrap: anywhere; }

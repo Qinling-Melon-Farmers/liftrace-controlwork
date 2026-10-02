@@ -9,7 +9,9 @@
 > 工作台里的 READY 只是"应用链就绪"，不是起飞许可，也不是飞行验收结论。
 
 2026-10-02 review 已修复实投确认词、第6组速度、设备失败继续启动、旧遥测判就绪及收尾顺序。
-H/走廊/整场已适配人工解锁后的自动时序，**本轮仅本地更新，未上板或实飞**。
+H/走廊/整场已适配人工解锁后的自动时序，10-02 已同步至旧板 43.59，尚未实飞验收；
+同步范围见 [旧板部署记录](../../docs/deployment/board_redeploy_20261001/DEPLOY_4359_20261002.md)。
+任务卡片已补齐「选择此组」按钮、标题点击和刷新后的选择记忆。
 具体按钮顺序、切组与更新范围见 [review与现场操作](../../docs/deployment/flight_workbench_20261002/REVIEW_AND_OPERATIONS.md)。
 
 ---
@@ -30,7 +32,7 @@ bash tools/flight_workbench/start_workbench.sh --port 8792 --open
 
 连接板端：
 
-1. 在页面顶栏的**板端地址**下拉里选现场地址（默认 `orangepi@192.168.43.99`），再点「连接」；
+1. 在页面顶栏的**板端地址**下拉里选现场地址（默认 `orangepi@192.168.43.59`），再点「连接」；
    或先用 `--password-file`／环境变量给一次口令：
    ```bash
    ORANGEPI_SSH_PASSWORD=... bash tools/flight_workbench/start_workbench.sh
@@ -38,14 +40,14 @@ bash tools/flight_workbench/start_workbench.sh --port 8792 --open
    ```
 2. 口令只留在服务进程内存里，用于自动回应 `password:`/`[sudo] password` 提示；勾选"记住"
    才会写到 `~/.config/liftrace-flight-workbench/profile.json`（0600，不在仓库内）。
-3. 地址默认取 `workbench.yaml` 的 `connection.host`（外场当前 `orangepi@192.168.43.99`）。
+3. 地址默认取 `workbench.yaml` 的 `connection.host`（外场当前 `orangepi@192.168.43.59`）。
    下拉里的历史地址来自现场部署记录与项目 memoir，选中即写回本机 profile（不改仓库文件）：
 
    | 地址 | 出处 |
    |---|---|
-   | `orangepi@192.168.43.99` | 外场当前（2026-10-01 第五组实投） |
+   | `orangepi@192.168.43.59` | 外场当前，10-02 换回 28~30 日旧机 |
+   | `orangepi@192.168.43.99` | 2026-10-01 第五组实投 |
    | `orangepi@192.168.3.15` | 2026-10-01 现场操作手册 / 九组部署 |
-   | `orangepi@192.168.43.59` | 2026-09-28~29 现场（site_20260928） |
    | `orangepi@192.168.156.193` | 2026-09-28 现场部署（当时的新 IP） |
    | `orangepi@10.231.47.193` | 2026-09-20 现场（onboard_obstacle_reference） |
    | `orangepi@192.168.3.126` | 2026-09-20 旧板端（r64 基线） |

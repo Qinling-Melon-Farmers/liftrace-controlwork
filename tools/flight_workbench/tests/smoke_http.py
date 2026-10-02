@@ -95,7 +95,7 @@ def main():
         connection = (json.loads(body).get("connection") or {})
         options = connection.get("host_options") or []
         hosts = [item.get("host") for item in options]
-        check("快照带历史地址清单（含外场当前 192.168.43.99）",
+        check("快照带历史地址清单（含历史 192.168.43.99）",
               "orangepi@192.168.43.99" in hosts and "orangepi@10.231.47.193" in hosts,
               "共 %d 项：%s" % (len(hosts), ", ".join(hosts[:3])))
         check("切换后的 host 生效", connection.get("host") == "orangepi@192.168.3.15",
