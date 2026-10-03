@@ -1,5 +1,7 @@
 # LIO—外部定位—PX4 位姿跳变排查步骤
 
+**18点进展：** 新一轮 17:14:24 实飞 ULog 已取得并按 606 对位置数据对齐，确认 EV 超时停融→高度/位置先恢复并重置→航向稍后恢复，以及约 4.4° 姿态差造成的水平—高度耦合。见 [同固件 ULog 分析](PX4_JUMP_ULOG_171424_20261003.md)。下文前三轮的 ULog 仍缺，不用下午日志代替它们；当前板端已换回 `192.168.43.59`，日志地址不代表当前连接地址。
+
 适用对象：10月3日板端地址 `192.168.3.126`，115933/122529/124630 三轮现有日志。结果来源与数值见 [实飞分析](LIO_POSE_DIAGNOSIS_20261003.md)。本流程先分析已有数据，再安排地面观测；本文与离线工具不启动 ROS、仿真或实机动作。
 
 要分别回答两个问题：**飞控位置为什么不连续；LIO 数据为什么变旧并被桥接拒收。** 今天确定的是 LIO/EV 位置连续、飞控位置出现大差分，且三次差分均紧随 EV 中断恢复。不能由此排除 LIO 实时性，也不能在没有 ULog 时断定 PX4 执行了哪种重置。
@@ -16,7 +18,7 @@
 
 按解锁、接管、落地及飞行时长匹配日志，不能仅凭 `.ulg` 文件名认定北京时间；它可能用 UTC，也可能没有有效日期。ULog 内一般是飞控启动后的微秒，bag 为 ROS epoch 时间，必须先用解锁/接管等共同事件估计偏移，再用两端高度曲线精细对齐。状态采样和链路延迟使“解锁对齐”不足以直接比较几十毫秒先后顺序；同时检查 MAVROS/PX4 时间同步记录。
 
-本 worktree 已有今日 ROS bag；现存 14 个 `.ulg` 都属于9月27–28日仿真，不能代替今天实飞。QGC 的 `.tlog` 也不能保证具有 EKF reset/fusion 字段。
+本流程初稿时只有 14 个9月27–28日仿真 `.ulg`；后来取得的真实 `px4_log781.ulg` 对应下午 17:14:24 新一轮，前三轮仍待匹配。QGC 的 `.tlog` 也不能保证具有 EKF reset/fusion 字段。
 
 ## 2. 确认重置，再查触发重置的条件
 
@@ -28,9 +30,10 @@
 | 估计器切换 | `estimator_selector_status.primary_instance`、`instance_changed_count` | 位置变动是否来自不同 EKF 实例切换；多实例的 aid/flags 必须与当时主实例匹配 |
 | 飞控收到的 EV | `vehicle_visual_odometry.timestamp`、`timestamp_sample`、位置、`reset_counter`、`pose_frame` | 中断是否到达飞控；输入是否变旧、未来时间戳、坐标系/重置标记发生变化 |
 | EV 高度融合 | `estimator_status_flags.cs_ev_hgt`；`estimator_aid_src_ev_hgt.fused/innovation_rejected/innovation/test_ratio/time_last_fuse` | EV 高度融合是否停止、恢复；恢复前观测与预测差异有多大 |
+| 重置/停融事件 | 主实例的 `estimator_event_flags.vision_data_stopped/reset_hgt_to_ev/starting_vision_yaw_fusion`，与高度/位置/航向 flags 对照 | 确认恢复顺序与重置来源；局部位置降采样时优先参考事件时刻 |
 | 其他高度来源 | `cs_baro_hgt/cs_rng_hgt/cs_gps_hgt`、气压高度及其 aid-source | 是否有参考来源变化、气压观测偏差或融合故障 |
 | 传感器健康 | IMU clipping/振动、`fs_bad_acc_vertical` 等；固件对应 IMU 状态数据 | 是否有 IMU 饱和、振动或加速度估计问题；启动时和飞行时分开 |
-| 当轮参数 | ULog 内 `EKF2_EV_*`、`EKF2_HGT_REF` 或旧版 `HGT_MODE/AID_MASK`、气压/测距/GPS 设置及飞行中参数变更 | 只采用当次日志配置；今天或昨天事后读回不能当成飞行参数快照 |
+| 当轮参数 | ULog 内 `EKF2_EV*`（含 `EVP/EVA/EVV`）、`EKF2_HGT_REF` 或旧版 `HGT_MODE/AID_MASK`、气压/测距/GPS 设置及飞行中参数变更 | 只采用当次日志配置；今天或昨天事后读回不能当成飞行参数快照 |
 
 PX4 的局部位置是 NED，Z 向下；MAVROS 的位置为 ENU，Z 向上。因此今天的三次高度跃变，若确为同一次垂直 reset，ULog 的 `delta_z` 应大致为 **-0.435、-0.372、-0.457 m**，允许事件内正常运动和采样延迟差异。[PX4 字段定义](https://docs.px4.io/main/en/msg_docs/VehicleLocalPosition)
 

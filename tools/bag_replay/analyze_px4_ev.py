@@ -17,11 +17,13 @@ from pyulog import ULog
 TOPICS = (
     'vehicle_local_position', 'vehicle_visual_odometry', 'actuator_armed',
     'vehicle_status', 'vehicle_land_detected', 'estimator_selector_status',
-    'estimator_status_flags', 'estimator_status', 'estimator_innovations',
+    'estimator_status_flags', 'estimator_event_flags', 'estimator_status',
+    'estimator_innovations', 'estimator_innovation_variances',
     'estimator_innovation_test_ratios', 'timesync_status', 'vehicle_air_data',
     'sensor_baro', 'vehicle_imu_status', 'estimator_aid_src_ev_hgt',
     'estimator_aid_src_ev_pos', 'estimator_aid_src_ev_vel',
     'estimator_aid_src_ev_yaw', 'estimator_aid_src_baro_hgt',
+    'estimator_baro_bias', 'battery_status',
 )
 COUNTERS = {
     'xy_reset_counter': ('delta_xy[0]', 'delta_xy[1]'),
@@ -65,8 +67,10 @@ def transitions(data, field, limit):
 
 def parameters(ulog):
     def relevant(name):
-        return (name.startswith(('EKF2_EV_', 'EKF2_BARO_', 'EKF2_GPS_', 'EKF2_RNG_'))
+        return (name.startswith(('EKF2_EV', 'EKF2_BARO_', 'EKF2_GPS_', 'EKF2_RNG_',
+                                 'EKF2_IMU_POS_', 'SENS_BOARD_'))
                 or name in ('EKF2_HGT_REF', 'EKF2_HGT_MODE', 'EKF2_AID_MASK',
+                            'EKF2_DELAY_MAX',
                             'EKF2_MULTI_IMU', 'EKF2_MULTI_MAG', 'SDLOG_PROFILE',
                             'SDLOG_MODE', 'SENS_IMU_MODE'))
     return {
@@ -156,6 +160,10 @@ def analyze(path, gap_sec, limit):
                 fields = [f for f in data if f.startswith(('cs_ev_', 'reject_', 'fs_bad_acc_'))
                           or f in ('cs_in_air', 'cs_baro_hgt', 'cs_rng_hgt', 'cs_gps_hgt',
                                    'cs_inertial_dead_reckoning', 'cs_vehicle_at_rest')]
+            elif name == 'estimator_event_flags':
+                fields = [f for f in data if f.startswith(('reset_', 'starting_vision_'))
+                          or f in ('information_event_changes', 'warning_event_changes',
+                                   'vision_data_stopped')]
             elif name.startswith('estimator_aid_src_'):
                 fields = [f for f in ('fused', 'innovation_rejected', 'estimator_instance') if f in data]
                 out['numeric'] = {f: stats(v) for f, v in data.items()
@@ -164,7 +172,12 @@ def analyze(path, gap_sec, limit):
                 fields = [f for f in ('primary_instance', 'instance_changed_count',
                                       'arming_state', 'nav_state', 'failsafe', 'armed',
                                       'landed', 'xy_valid', 'z_valid', 'control_mode_flags') if f in data]
-                if name in ('timesync_status', 'vehicle_air_data', 'sensor_baro', 'vehicle_imu_status'):
+                if name == 'battery_status':
+                    fields += [f for f in ('connected', 'warning', 'cell_count') if f in data]
+                if name in ('timesync_status', 'vehicle_air_data', 'sensor_baro',
+                            'vehicle_imu_status', 'estimator_baro_bias', 'battery_status',
+                            'estimator_innovations', 'estimator_innovation_variances',
+                            'estimator_innovation_test_ratios'):
                     out['numeric'] = {f: stats(v) for f, v in data.items()
                                       if f != 'timestamp' and np.issubdtype(v.dtype, np.number)}
             out['states'] = {f: transitions(data, f, limit) for f in fields}
@@ -177,6 +190,8 @@ def analyze(path, gap_sec, limit):
         warnings.append('EV height aid-source topic absent; this does not prove EV height fusion was inactive.')
     if 'estimator_status_flags' not in names:
         warnings.append('Decoded estimator flags absent; inspect legacy estimator_status bitfields for this firmware.')
+    if 'estimator_event_flags' not in names:
+        warnings.append('Estimator event flags absent; reset causes cannot be identified from event markers.')
     if armed is None:
         warnings.append('No actuator_armed samples; reset/gap events have unknown arming state.')
     dropouts = [{'boot_sec': d.timestamp / 1e6, 'duration_ms': d.duration}
@@ -198,6 +213,9 @@ def analyze(path, gap_sec, limit):
             'A counter step greater than one may hide multiple resets; delta fields describe only the latest reset.',
             'EV timestamp intervals reflect logged publications and may be affected by logging rate/losses.',
             'Estimator multi_id streams must be compared with the selected primary estimator.',
+            'Counter timestamps are first logged observations; sparse local-position logging can trail the reset event.',
+            'Numeric innovation statistics summarize logged samples and do not reconstruct every fusion-cycle rejection.',
+            'The reported end time reflects selected topics and may precede the final sample in the full ULog.',
         ],
     }
 
