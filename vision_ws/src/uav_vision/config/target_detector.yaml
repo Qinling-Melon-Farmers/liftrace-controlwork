@@ -8,3 +8,8 @@ imgsz: 640
 # OrangePi 不运行本节点，板端使用独立 RKNN/NPU 入口。
 device: 0
 perf_topic: "/uav_vision/perf"
+
+# H landing uses geometry; class inference resumes on leaving landing.
+align_mode_topic: /uav_vision/align_mode
+default_align_mode: disabled
+pause_in_landing_mode: true

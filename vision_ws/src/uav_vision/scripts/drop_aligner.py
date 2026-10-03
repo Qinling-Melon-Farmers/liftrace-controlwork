@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 """drop_aligner: 计算像素偏差，判定对准条件，发布 DropOffset + DropReady。"""
+import copy
+
 import rospy
 from std_msgs.msg import String
 from sensor_msgs.msg import CameraInfo
@@ -160,6 +162,11 @@ class DropAligner:
 
         offset = DropOffset()
         offset.header = best.header
+        if self._align_mode in ("drop_circle", "drop_cross"):
+            # Cached pixels belong to last_seen, not the memory publication time.
+            # Do not mutate the candidate or change the legacy landing timestamp.
+            offset.header = copy.copy(best.header)
+            offset.header.stamp = best.last_seen
         offset.dx_px = dx
         offset.dy_px = dy
         offset.radius_px = best.center_px.z

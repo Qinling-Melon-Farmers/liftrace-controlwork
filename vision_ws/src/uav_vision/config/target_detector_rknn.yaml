@@ -29,3 +29,8 @@ input_dtype: "float32"
 input_normalize: true
 box_format: "auto"
 perf_topic: "/uav_vision/perf"
+
+# H landing uses geometry; class inference resumes on leaving landing.
+align_mode_topic: /uav_vision/align_mode
+default_align_mode: disabled
+pause_in_landing_mode: true
