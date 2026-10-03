@@ -42,13 +42,9 @@ def flight_geometry(settings):
     custom=settings.get("flight_area",{})
     if not isinstance(custom,dict) or set(custom)-set(defaults):raise ValueError("Unknown flight_area fields")
     area=dict(defaults,**custom)
-    if settings.get('mode') == 'high_speed_capture':
-        line=settings.get('capture_line_xy')
-        trips=settings.get('capture_round_trips',2)
-        if not isinstance(line,list) or len(line)!=2 or type(trips) is not int or not 1<=trips<=4:
-            raise ValueError('capture requires two endpoints and 1..4 round trips')
-        area['staging_xy']=line[0]
-        area['survey_xy']=[copy.deepcopy(p) for _ in range(trips) for p in (line[1],line[0])]
+    if settings.get('mode') == 'high_speed_capture' and any(
+            key in settings for key in ('capture_line_xy','capture_round_trips')):
+        raise ValueError('Capture now uses flight_area staging_xy/survey_xy; remove obsolete line settings')
     def finite(v):return not isinstance(v,bool) and isinstance(v,(int,float)) and math.isfinite(v)
     for key in ("center_bounds","target_bounds","search_bounds"):
         v=area[key]
@@ -64,11 +60,11 @@ def flight_geometry(settings):
     points=area["survey_xy"]
     if not isinstance(points,list) or len(points)<(2 if settings.get('mode')=='high_speed_capture' else 3) or any(not inside(v) for v in points):raise ValueError("Survey point outside flight_area")
     if settings.get('mode')=='high_speed_capture':
-        line=settings['capture_line_xy']
-        if any(not (bounds[0]+.3<=p[0]<=bounds[1]-.3 and bounds[2]+.3<=p[1]<=bounds[3]-.3) for p in line):
-            raise ValueError('Capture endpoints require 0.30m inset inside center bounds')
-        if math.dist(*line)<max(3.9,settings['cruise_speed']**2/settings['cruise_acceleration']+settings['cruise_speed']):
-            raise ValueError('Capture leg too short for acceleration and one-second sampling (minimum 3.9m)')
+        if any(not (bounds[0]+.3<=p[0]<=bounds[1]-.3 and bounds[2]+.3<=p[1]<=bounds[3]-.3)
+               for p in [area['staging_xy'],*points]):
+            raise ValueError('Capture points require 0.30m inset inside center bounds')
+        # Short survey legs are intentional. Speed acceptance uses measured
+        # moving windows; completing the route does not prove cruise speed.
     size=area["map_size"]
     if not isinstance(size,list) or len(size)!=3 or not all(finite(v) and v>0 for v in size):raise ValueError("Invalid map_size")
     if max(abs(bounds[0]),abs(bounds[1]))+.3>=size[0]/2 or max(abs(bounds[2]),abs(bounds[3]))+.3>=size[1]/2:
@@ -85,13 +81,13 @@ def validate_settings(settings):
     raw=settings.get('raw_servo_service','/legacy/Servo_raw')
     if not isinstance(raw,str) or not raw.startswith('/') or raw in ('/Servo','/board_trials/Servo','/board_trials/mock_servo'):
         raise ValueError('raw_servo_service must be an independent absolute hardware service')
-    for key,lo,hi in [('low_agl',1.,1.8),('high_agl',2.,2.8),('landing_transit_agl',.5,1.8),('landing_capture_agl',.5,2.0),('cruise_speed',.1,1. if settings['mode']=='high_speed_capture' else .5),('cruise_acceleration',.1,.5)]:
+    for key,lo,hi in [('low_agl',1.,1.8),('high_agl',2.,2.8),('landing_transit_agl',.5,1.8),('landing_capture_agl',.5,2.0),('cruise_speed',.1,1.2 if settings['mode']=='high_speed_capture' else .5),('cruise_acceleration',.1,1.0 if settings['mode']=='high_speed_capture' else .5)]:
         v=settings.get(key)
         if isinstance(v,bool) or not isinstance(v,(int,float)) or not math.isfinite(v) or not lo<=v<=hi:
             raise ValueError('Invalid '+key)
     if settings['mode']=='high_speed_capture':
-        if settings['cruise_speed'] not in (.5,1.) or settings.get('high_agl')!=2. or settings.get('max_agl')!=2.:
-            raise ValueError('Capture uses 0.5/1.0m/s and 2.0m high/cap')
+        if settings['cruise_speed'] not in (.5,1.,1.2) or settings.get('high_agl')!=2. or settings.get('max_agl')!=2.:
+            raise ValueError('Capture uses 0.5/1.0/1.2m/s and 2.0m high/cap')
         if settings.get('terminal_hover_agl')!=.3:
             raise ValueError('Capture requires 0.30m terminal hover')
         if settings.get('capture_lighting','unspecified') not in ('normal','dim','unspecified'):
@@ -178,8 +174,9 @@ def generate(root,out,settings,fc_xyz,rig):
     runtime['trial']=dict(mode=mode,waypoints=line,camera_info_topic=settings.get('camera_info_topic','/camera/camera_info'),delivery_count=settings.get('delivery_count',2),actuator_mode=actuator)
     if mode=='high_speed_capture':
         runtime['trial']['capture']=dict(speed=settings['cruise_speed'],lighting=settings.get('capture_lighting','unspecified'),
-            round_trips=settings['capture_round_trips'],line_xy=settings['capture_line_xy'])
-    runtime['following_speed_profile']=dict(cruise_lead_m=(float(settings['cruise_speed']) if mode=='high_speed_capture' else .50),precision_lead_m=.25,corridor_lead_m=.25)
+            route='flight_area.survey_xy',survey_xy=copy.deepcopy(area['survey_xy']))
+    runtime['following_speed_profile']=(dict(cruise_lead_m=min(float(settings['cruise_speed']),1.0),precision_lead_m=.4,corridor_lead_m=.15)
+        if mode=='high_speed_capture' else dict(cruise_lead_m=.50,precision_lead_m=.25,corridor_lead_m=.25))
     if mode=='landing':
         hx,hy=settings['landing_xy'];transit=ground+settings['landing_transit_agl']
         m.update(landing_xy=[x+hx,y+hy],return_altitude=capture,post_delivery_route=[point(max(.6,hx-.7),hy,transit),point(hx,hy,transit),point(hx,hy,capture)])
@@ -230,7 +227,7 @@ def generate(root,out,settings,fc_xyz,rig):
         '/fast_planner_node/sdf_map/obstacles_inflation_up':.20,
         '/fast_planner_node/sdf_map/obstacles_inflation_down':.10,
         '/traj_server/traj_server/target_dist':.25,
-        '/external_planner_start_max_distance':(max(.75,float(settings['cruise_speed'])+.25) if mode=='high_speed_capture' else .75),
+        '/external_planner_start_max_distance':(max(.75,min(float(settings['cruise_speed']),1.0)+.25) if mode=='high_speed_capture' else .75),
         '/external_planner_max_command_z':ground+settings.get('max_agl',2.9),'/navigation/planner_bridge/execution/max_goal_z':ground+settings.get('max_agl',2.9),
         '/navigation/planner_bridge/execution/arrival_position_tolerance':.12,'/navigation/planner_bridge/execution/arrival_dwell':.8,
         '/navigation/planner_bridge/execution/initial_plan_timeout':12.,

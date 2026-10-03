@@ -141,3 +141,5 @@ known_rig继承的12cm表仅为试飞组已有camera_init XY目标偏移，尚�
 
 
 2026-09-29：[高速拍摄第09组操作](09_high_speed_capture/README.md)。现场快捷入口capture/6，支持--capture-speed 0.5或1.0，仅采集不投递。
+
+2026-10-03更新：[高速拍摄新版](09_high_speed_capture/README.md)改为第5组场内巡航路线，默认1.2m/s、1.0m/s²、2m高度，返起飞点30cm悬停；仅采集，不投递。旧直线往返记录为历史。

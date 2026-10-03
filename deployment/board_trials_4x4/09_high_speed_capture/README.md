@@ -1,40 +1,51 @@
-# 09_high_speed_capture：高速飞行拍摄
+# 09_high_speed_capture：现场第六组高速拍摄
 
-2026-09-29已实现并完成离线测试/构建，9月29日已部署到飞机并完成构建/离线检查，未实飞或新增SITL实跑。本专项只巡航、记录图像和粗记忆，不中断去目标、不重访、不调用模拟或真实舵机。原八组默认0.5m/s保持不变。
+2026-10-03更新。18:11旧版直线往返已完成采集，实际速度/航迹另见本次[复盘](../../../docs/deployment/board_redeploy_20261001/GROUP5_GROUP6_UPDATE_20261003.md)。新版改用第五组的场内巡航路线和现有正赛速度档；本次只通过离线回归，尚未实飞。只采集、形成粗记忆，不中断去靶、不重访、不调用舵机。
 
-## 航线与继承
+## 路线和高度
 
-- 沿用现场前方6m、左右±1.5m范围，固定起飞坐标+X向前、+Y向左。端点默认(0.8,0)和(5.2,0)，端点避开边界，机头方向保持原配置。
-- 低空1.4m入场到(0.8,0)→原地规划升到2m→两次直线往返，共4条4.4m长边→返回已验证升降位置→规划下降到1.4m→原有出口降至30cm悬停→飞手落地。往返方向分别统计；每个方向各经过两次。
-- 继承已知相机/槽位外参、自动地面基准、定位稳定后空白FreeDOM、四路视觉READY、静态TF、虚拟顶棚关闭、25/20/10cm膨胀、现场关闭附加障碍柱的诊断档。真实三维避障仍启用。该无柱场地配置不作为比赛禁越树的验收。
-- READY后人工解锁，监督器沿用现场OFFBOARD/低空稳定后自动开始任务；不自动解锁。正常结束30cm悬停，接管后不抢回。未检出靶也能完成采集；航线不可达/超时仍会报未完成，不能跳过失败段假装采完。
+现场入口`start_test.sh 6`和第五组共读`deployment/site_20260928/test_area.yaml`的`flight_area.staging_xy/survey_xy`，不再被直线往返配置覆盖。修改这份现场航线会同时作用于两组。
+
+当前相对起飞点的巡航点（米）：
+
+```text
+低位入场 (0.6,0) → 原地升到2m
+(0.8,-1.1) → (3.2,-1.1) → (5.5,-1.1) → (5.5,0)
+→ (5.5,1.1) → (3.2,1.1) → (0.8,1.1) → (0.8,-1.1)
+→ 原升降点 → 规划降至1.4m → 返实际起飞点 → 30cm悬停 → 飞手落地
+```
+
+第五组可在满足三类支持条件后提前中断；第六组会完整走完这些巡航点。它模拟全场搜索的转向和短航段，不等于执行三投、走廊和H降落。仍使用现场前方6m、左右±1.5m；保留2m高位/指令高度上限、1.4m低位、0.3m终点悬停。实际估计高度的超调/重置须从bag另外检查。
+
+定位稳定后建图、已知外参、静态TF、虚拟顶棚关闭、25/20/10cm三维膨胀、附加障碍柱关闭、轻量bag与人工解锁后自动任务均继承。只有本专项速度调整，其他八组仍是0.5m/s。
+
+## 速度
+
+来源为整机候选分支`feat/r2026-competition-integrated`的`deployment/competition/field.example.yaml`（31c741d）：
+
+| 参数 | 新默认 |
+|---|---:|
+| 规划速度上限 | 1.2m/s |
+| 规划加速度上限 | 1.0m/s² |
+| 巡航前视/末级跟随距离 | 1.0m |
+| 精调/普通返航前视 | 0.4m |
+| 终止/通道前视 | 0.15m |
+
+`--capture-speed 0.5/1.0`保留对照入口（同一新路线、加速度1.0m/s²）。前视取min(速度数值,1.0)m；不要把前视距离当速度。现有到点验收、刹停和驻留没有删除，1.1m短航段未必达到1.2m/s，必须统计实测速度窗口。路线完成只报CAPTURED，速度/识别仍PENDING_OFFLINE。
 
 ## 操作
 
-在完成源码更新、按部署总览构建并接好原设备后，从工程根目录执行。预览和flight不能同时运行。
+设备、定位和飞手按部署手册准备。以下校验不会启动ROS节点：
 
 ```bash
-# 只校验配置，不启动ROS节点
-bash deployment/board_trials_4x4/09_high_speed_capture/start.sh preview --capture-speed 1.0 --capture-lighting normal --check-config
-# 预览，沿用相同模型/外参/地图入口
-bash deployment/board_trials_4x4/09_high_speed_capture/start.sh preview --capture-speed 1.0 --capture-lighting normal
-# 现场飞手确认后：先0.5m/s对照，结束并退出本轮后再运行1m/s
-bash deployment/board_trials_4x4/09_high_speed_capture/start.sh flight --capture-speed 0.5 --capture-lighting normal
-bash deployment/board_trials_4x4/09_high_speed_capture/start.sh flight --capture-speed 1.0 --capture-lighting normal
+cd /home/orangepi/liftrace_board_trials_20260928
+source deployment/site_20260928/environment.sh
+bash deployment/site_20260928/start_test.sh 6 preview --check-config
+bash deployment/site_20260928/start_test.sh 6 preview --capture-speed 1.2 --capture-lighting normal --check-config
 ```
 
-较暗光照使用`--capture-lighting dim`；该参数只标记条件，不自动调相机曝光或灯光。`--model`/`--metadata`继承公共入口，必须成对匹配。`--capture-speed`只接受0.5或1.0，只能用于本专项；`--real-release`被拒绝，没有start_real.sh。
+现场获准后使用`bash deployment/site_20260928/start_test.sh 6 flight --capture-speed 1.2 --capture-lighting normal`。仍等待飞手手动解锁；不自动解锁。光照标签可选normal/dim/unspecified，不调曝光。结束返起飞点30cm悬停，飞手接管落地。`--real-release`禁止，机构不参与本项。
 
-现场快捷入口也支持：`bash deployment/site_20260928/start_test.sh capture preview --capture-speed 1.0 --capture-lighting dim --check-config`；`capture`可写`6`。编号6是原现场五组之后的新增采集，并不是八组中的06_high_priority。
+第09模块的独立`start.sh`使用settings.yaml内同形路线；现场优先用上述第6组入口，保证始终引用与第5组相同的现场参数。旧`capture_line_xy/capture_round_trips`已移除；残留这些字段会在启动前明确拒绝，防止混用旧路线。
 
-## 速度与结果
-
-规划器速度约束及任务名义速度同步选0.5/1m/s；两档加速度均0.35m/s²。巡航前视/末级跟随距离同步0.5/1.0m，控制器轨迹命令接纳距离相应0.75/1.25m，避免下游仍按旧0.75m拒绝1m前视；精调/终止档沿用原值。跟随距离单位是米，设置1m不保证实速达到1m/s，需回放评价。
-
-`capture_line_xy`和`capture_round_trips`集中在settings.yaml。每端至少内收中心边界0.30m、往返1–4次，单边至少满足v²/a+v×1秒且不短于3.9m；不能把这个6m配置直接塞进旧4×4场地。现场`--site-config`仍可继承范围/高度约束，但不覆盖本专项的直线航线；冲突配置会在启动前拒绝。
-
-正常采完并人工落地后结果为`CAPTURED`，仅代表采集航线和结束流程完成，速度/识别验证为`PENDING_OFFLINE`。它不等于高速识别PASS，不要求凑够三类才能结束。原八组结果语义不变。
-
-bag保留压缩图、CameraInfo、全视觉链、位姿/速度、规划、记忆及terminal_hover_status；板端独立MP4脚本已移除，视频留本机合成。运行目录`logs/board_high_speed_capture_<时间>/`；在本机用`tools/bag_replay`生成原片、叠加、轨迹和多画面视频，按[试验计划](../../../docs/planning/high_speed_capture_20260929/PLAN.md)只统计有效速度窗口。仿真工具仍只提供原八组4×4场景，本次没有为第09组伪造SITL通过。
-
-[实现检查及阈值本地回放](../../../docs/verification/high_speed_capture_20260929/REPORT.md)
+工作台第6卡片也支持1.2/1.0/0.5，默认显示1.2。录制仍只留轻量bag和状态文本，本机`tools/bag_replay`合成视频。本次没有启动工作台服务、仿真或实机飞行。

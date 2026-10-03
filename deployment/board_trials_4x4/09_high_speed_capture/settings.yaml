@@ -7,8 +7,8 @@ landing_capture_agl: 1.8
 landing_xy:
 - 2.0
 - 0.0
-cruise_speed: 1.0
-cruise_acceleration: 0.35
+cruise_speed: 1.2
+cruise_acceleration: 1.0
 virtual_ceiling_enabled: false
 alignment_mode: legacy_static
 actuator_mode: mock
@@ -71,9 +71,3 @@ auto_start_after_arm: true
 initialization_timeout: 300.0
 obstacle_columns_enabled: false
 capture_lighting: unspecified
-capture_line_xy:
-- - 0.8
-  - 0.0
-- - 5.2
-  - 0.0
-capture_round_trips: 2

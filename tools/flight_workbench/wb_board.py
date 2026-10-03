@@ -153,8 +153,8 @@ def build_group_command(config, group, mode, route=None, real_release=False,
 
     extra = ""
     if capture_speed is not None:
-        if folder != "09_high_speed_capture" or isinstance(capture_speed, bool) or float(capture_speed) not in (.5, 1.):
-            raise ValueError("拍摄速度只允许第6组的 0.5/1.0 m/s")
+        if folder != "09_high_speed_capture" or isinstance(capture_speed, bool) or float(capture_speed) not in (.5, 1., 1.2):
+            raise ValueError("拍摄速度只允许第6组的 0.5/1.0/1.2 m/s")
         extra += " --capture-speed %.1f" % float(capture_speed)
     if capture_lighting:
         if folder != "09_high_speed_capture" or capture_lighting not in ("normal", "dim", "unspecified"):

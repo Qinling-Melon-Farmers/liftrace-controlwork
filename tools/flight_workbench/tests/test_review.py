@@ -45,7 +45,7 @@ class ReviewTests(unittest.TestCase):
 
     def test_capture_speed_preview_and_flight(self):
         for mode in ('preview', 'flight'):
-            for speed in (.5, 1.):
+            for speed in (.5, 1., 1.2):
                 result = self.wb.start_trial(dict(group_id='site6', mode=mode,
                     capture_speed=speed, confirm='启动试飞'))
                 self.assertIn('6 %s --capture-speed %s' % (mode, speed), result['trial']['command'])

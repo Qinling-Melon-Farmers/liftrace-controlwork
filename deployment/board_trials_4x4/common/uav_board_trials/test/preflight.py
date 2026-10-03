@@ -20,9 +20,9 @@ for folder in TRIAL_FOLDERS.values():
             values={k:v.value for k,v in cfg.params.items()};nodes={n.name:n for n in cfg.nodes}
             assert values['/fast_planner_node/sdf_map/visualization_rate']==2.
             assert values['/fast_planner_node/manager/max_vel']==s['cruise_speed']
-            assert s['cruise_speed']==(1. if s['mode']=='high_speed_capture' else .5)
+            assert s['cruise_speed']==(1.2 if s['mode']=='high_speed_capture' else .5)
             assert values['/fast_planner_node/search/max_vel']==s['cruise_speed']
-            assert values['/fast_planner_node/manager/max_acc']==s['cruise_acceleration']==0.35
+            assert values['/fast_planner_node/manager/max_acc']==s['cruise_acceleration']==(1.0 if s['mode']=='high_speed_capture' else .35)
             assert values['/fast_planner_node/sdf_map/virtual_ceil_height']==-.1
             assert [values['/fast_planner_node/sdf_map/'+key] for key in ('obstacles_inflation','obstacles_inflation_up','obstacles_inflation_down')]==[.25,.2,.1]
             assert values['/fast_planner_node/sdf_map/horizontal_avoidance/enabled']==(s['mode'] in HIGH_MODES and s.get('obstacle_columns_enabled',True))
@@ -36,7 +36,7 @@ for folder in TRIAL_FOLDERS.values():
             assert values['/fast_planner_node/progress/enabled']
             assert values['/traj_server/progress/enabled']
             assert values['/traj_server/traj_server/require_goal_identity']
-            if s['mode'] in HIGH_MODES:assert values['/navigation/mission_manager/high_view_probe/config/staging_xy']==([.8,0.] if s['mode']=='high_speed_capture' else [.6,.05])
+            if s['mode'] in HIGH_MODES:assert values['/navigation/mission_manager/high_view_probe/config/staging_xy']==([.6,0.] if s['mode']=='high_speed_capture' else [.6,.05])
             assert not any(n.package in ('gazebo_ros','actuator_pwm') for n in cfg.nodes)
             assert 'trial_journal' in nodes and 'trial_recorder' not in nodes and 'target_detector_rknn' in nodes
             metadata=Path(values['/target_detector_rknn/metadata_path'])

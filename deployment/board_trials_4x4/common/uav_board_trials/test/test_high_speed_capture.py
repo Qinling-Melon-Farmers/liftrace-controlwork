@@ -1,7 +1,10 @@
 from pathlib import Path
 from dataclasses import replace
-import copy,tempfile,unittest,yaml
-from trial_config import generate,validate_settings,flight_geometry
+import copy,tempfile,unittest,yaml,json
+from unittest.mock import Mock,patch
+import rospy
+from trial_manager import BoardManager,base
+from trial_config import generate,validate_settings,flight_geometry,apply_site_profile
 from trial_runtime import HighSpeedCaptureRuntime
 from trial_auto_land import trial_ready
 from trial_result import evaluate
@@ -19,39 +22,65 @@ class CaptureTests(unittest.TestCase):
             with self.assertRaises(ValueError):validate_settings(s)
     def test_both_speed_profiles_have_single_no_release_chain_and_limits(self):
         rig=yaml.safe_load((BASE/'common/uav_board_trials/config/known_rig.yaml').read_text())
-        for speed in (.5,1.):
+        for speed in (.5,1.,1.2):
             s=self.settings();s['cruise_speed']=speed
             with tempfile.TemporaryDirectory() as path:
                 ref=generate(ROOT,path,s,(.01,-.01,0.),rig)
                 rt=yaml.safe_load((Path(path)/'runtime.yaml').read_text());ctrl=yaml.safe_load((Path(path)/'control.yaml').read_text());ov=yaml.safe_load((Path(path)/'overrides.yaml').read_text())
                 self.assertFalse(ctrl['drop_system']['enable_drop']);self.assertEqual(rt['trial']['actuator_mode'],'none')
-                self.assertEqual(rt['following_speed_profile']['cruise_lead_m'],speed)
+                self.assertEqual(rt['following_speed_profile']['cruise_lead_m'],min(speed,1.))
+                self.assertEqual(rt['following_speed_profile']['precision_lead_m'],.4)
+                self.assertEqual(rt['following_speed_profile']['corridor_lead_m'],.15)
                 self.assertGreater(ov['/external_planner_start_max_distance'],speed)
                 self.assertAlmostEqual(ov['/external_planner_max_command_z']-ref['ground_z'],2.)
                 points=rt['high_view_probe']['config']['survey_xy']
-                self.assertEqual(points,[[5.21,-.01],[.81,-.01],[5.21,-.01],[.81,-.01]])
+                self.assertEqual(points,[[x+.01,y-.01] for x,y in s['flight_area']['survey_xy']])
                 self.assertEqual(ov['/fast_planner_node/sdf_map/virtual_ceil_height'],-.1)
                 self.assertFalse(ov['/fast_planner_node/sdf_map/horizontal_avoidance/enabled'])
     def test_bad_route_speed_and_actuator_rejected(self):
-        for patch in ({'actuator_mode':'real'},{'cruise_speed':1.1},{'high_agl':2.6},{'terminal_hover_agl':.4},{'capture_round_trips':5},{'capture_line_xy':[[.8,0],[2,0]]},{'capture_line_xy':[[.8,0],[6,0]]},{'capture_line_xy':[[.8,0],[float('nan'),0]]}):
+        for patch in ({'actuator_mode':'real'},{'cruise_speed':1.1},{'cruise_acceleration':1.1},{'high_agl':2.6},{'terminal_hover_agl':.4},{'capture_round_trips':5},{'capture_line_xy':[[.8,0],[2,0]]},{'capture_line_xy':[[.8,0],[6,0]]},{'capture_line_xy':[[.8,0],[float('nan'),0]]}):
             s=self.settings();s.update(patch)
             with self.assertRaises(ValueError):validate_settings(s)
+    def test_capture_uses_same_site_route_as_priority_and_follows_site_changes(self):
+        site=yaml.safe_load((ROOT/'deployment/site_20260928/test_area.yaml').read_text())
+        priority=yaml.safe_load((BASE/'06_high_priority/settings.yaml').read_text())
+        c=flight_geometry(apply_site_profile(self.settings(),copy.deepcopy(site)))
+        p=flight_geometry(apply_site_profile(priority,copy.deepcopy(site)))
+        self.assertEqual(c,p)
+        site['flight_area']['survey_xy'][1]=[3.0,-.9]
+        c=flight_geometry(apply_site_profile(self.settings(),site))
+        self.assertEqual(c['survey_xy'][1],[3.0,-.9])
+        site['flight_area']['survey_xy'][1]=[3.0,1.4]
+        with self.assertRaises(ValueError):validate_settings(apply_site_profile(self.settings(),site))
+
     def runtime(self):
         s=self.settings();a=flight_geometry(s)
         r=HighSpeedCaptureRuntime(MissionCore(profile(),config()),ProbeConfig(-.22,tuple(tuple(p) for p in a['survey_xy']),high_agl=2.,staging_xy=tuple(a['staging_xy'])))
         r.start('capture',100.,(0.,0.));return r
     def test_empty_scene_finishes_route_descent_then_land_without_approach(self):
         r=self.runtime();now=100.;commands=[]
-        for seq in range(16):
+        for seq in range(20):
             action=r.core.active_action;commands.append(action.command)
             if action.command=='LAND':break
-            self.assertEqual(action.command,'SEARCH');self.assertFalse(action.has_target)
+            self.assertIn(action.command,('SEARCH','RETURN_HOME'));self.assertFalse(action.has_target)
             now+=2.
             r.update_pose((action.goal.x,action.goal.y,action.goal.z),now,'camera_init')
             out=r.apply_result(replace(result_for(action,seq+1,status='SUCCEEDED',terminal=True),mission_id='capture',event_stamp_ns=int(now*1e9)),now,(action.goal.x,action.goal.y))
         self.assertEqual(commands[-1],'LAND');self.assertEqual(r.core.committed_slots,0)
         self.assertTrue(r.capture_complete);self.assertEqual(r.trial_manifest,{})
-        self.assertEqual(r.core.active_action.reason,'board_high_speed_capture_complete')
+        self.assertIn('RETURN_HOME',commands)
+        self.assertEqual(tuple(r.core.config.landing_xy),(0.,0.))
+        # The LAND reason changes after RETURN_HOME; completion must survive
+        # the real manager handoff to the terminal-hover controller.
+        manager=BoardManager.__new__(BoardManager);manager.mode='high_speed_capture'
+        manager._runtime=r;manager._landing_pub=Mock()
+        with patch.object(base.NavigationMissionManager,'_publish_action'), patch('rospy.get_param',return_value='none'), patch.object(rospy.Time,'now',return_value=rospy.Time.from_sec(now)):
+            manager._publish_action(r.core.active_action)
+        ctx=json.loads(manager._landing_pub.publish.call_args[0][0].data)
+        status=dict(phase='LAND',active_command='LAND',mission_failed=False,
+                    mission_id=r.core.mission_id,active_decision_seq=r.core.active_action.decision_seq)
+        self.assertTrue(trial_ready(status,ctx,'camera_init'))
+
     def test_targets_do_not_interrupt_capture(self):
         r=self.runtime();r.ascent_verified=True;r.update_pose((.8,0,1.78),101.,'camera_init')
         r.ingest([candidate(class_name='red_cross',now=101.,x=2.,y=0)],101.)
