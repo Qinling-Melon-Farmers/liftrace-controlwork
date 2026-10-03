@@ -232,7 +232,7 @@ class CommandBuildTest(unittest.TestCase):
         self.assertIn("/home/orangepi/liftrace_board_trials_20260928/deployment/site_20260928/"
                       "MID360_config.json", wb_board.terminal_command(CONFIG, lidar))
         servo = next(t for t in CONFIG["terminals"] if t["id"] == "servo")
-        self.assertIn("hardware_ws/devel/lib/actuator_pwm/pwm_node1 /Servo:=/legacy/Servo_raw",
+        self.assertIn("patrol_uav_ws-patrol_planner/devel/lib/actuator_pwm/pwm_node1 /Servo:=/legacy/Servo_raw",
                       wb_board.terminal_command(CONFIG, servo))
         camera = next(t for t in CONFIG["terminals"] if t["id"] == "camera")
         self.assertTrue(wb_board.terminal_command(CONFIG, camera).endswith("/dev/video0"))
@@ -261,7 +261,7 @@ class HostOptionsTest(unittest.TestCase):
                   "orangepi@10.231.47.193", "orangepi@192.168.3.126")
 
     def test_default_host_is_current_field_address(self):
-        self.assertEqual(CONFIG["connection"]["host"], "orangepi@192.168.43.59")
+        self.assertEqual(CONFIG["connection"]["host"], "orangepi@192.168.3.126")
 
     def test_historical_addresses_are_options(self):
         options = CONFIG["connection"]["host_options"]

@@ -49,7 +49,7 @@ bash tools/flight_workbench/start_workbench.sh --port 8792 --open
    | `orangepi@192.168.3.15` | 2026-10-01 现场操作手册 / 九组部署 |
    | `orangepi@192.168.156.193` | 2026-09-28 现场部署（当时的新 IP） |
    | `orangepi@10.231.47.193` | 2026-09-20 现场（onboard_obstacle_reference） |
-   | `orangepi@192.168.3.126` | 2026-09-20 旧板端（r64 基线） |
+   | `orangepi@192.168.3.126` | 当前Orange Pi 5（2026-10-03） |
 
    清单外的地址：下拉最后一项“自定义地址…”或直接点“连接”填写。工程目录、模型等参数用顶栏“连接设置”，不必再双击标题。连接状态刷新不会清空历史地址列表。
 
@@ -231,3 +231,9 @@ node tools/flight_workbench/tests/browser_regression.mjs http://127.0.0.1:8793 <
 ```
 
 浏览器测试在独立临时配置中运行，连接 API 被替换为本地桩，不启动试飞。WSL 无 Node 时可从 Windows 调用已有 Node；不要为此更改 ROS Python。
+
+### 2026-10-03 当前板端与舵机入口
+
+当前SSH为 `orangepi@192.168.3.126`，Orange Pi 5。舵机实体包在部署根的 `patrol_uav_ws-patrol_planner/src/actuator_pwm`，二进制在同工作区 `devel/lib/actuator_pwm/pwm_node1`；当前电脑没有 `hardware_ws`。工作台默认已同步这两个路径，换电脑时必须按实际映射选择，不能套用5 Plus的2/3/4槽通道。历史SSH、自定义地址及密码入口保留；已保存的个人连接配置可能覆盖默认值，使用时选取当前地址。
+
+5a只准备权限和禁用输出；5b服务启动才依次复位三槽。两次地面工程链测试已得到三个真实PWM ACK，禁止将ACK写成有机械位置传感器的反馈。工作台服务仍关闭，本轮没有通过工作台启动飞行。
