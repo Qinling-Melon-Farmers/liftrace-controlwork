@@ -1,25 +1,35 @@
-# External Mission Manager owns all search/target/return waypoints.
-# The single takeoff seed below initializes the existing executor.
+# toudi3 SITL fixed-drop compatibility route for the uav_vision chain.
+#
+# This keeps the legacy route while disabling both legacy and dynamic slot
+# compensation. New visual candidates already arrive as map-frame poses, so
+# applying either correction would introduce a systematic release offset.
+
+# Keep all standard labels valid while the fixed route is active.  The legacy
+# default remains a single target when this key is absent.
 goal_list: ["bridge", "panzer", "pillbox", "tent", "tank"]
 
 waypoints:
-  - {x: 0.0, y: 0.0, z: 1.4, yaw: 0.0, pointmode: "Takeoff_point", hover_time: 0.0}
+  - {x: 0.000, y: 0.000, z: 2.000, yaw: 0.0, pointmode: "Takeoff_point", hover_time: 0.0}
+  - {x: -0.602, y: -1.041, z: 1.500, yaw: 0.0, pointmode: "Detect_point", hover_time: 5.0}
+  - {x: -1.903, y: -0.023, z: 1.500, yaw: 0.0, pointmode: "Detect_point", hover_time: 5.0}
+  - {x: 1.016, y: 0.256, z: 1.500, yaw: 0.0, pointmode: "Detect_point", hover_time: 5.0}
+  - {x: 0.000, y: 0.000, z: 1.500, yaw: 0.0, pointmode: "Nothing_point", hover_time: 2.0}
+  - {x: 0.000, y: 0.000, z: 1.000, yaw: 0.0, pointmode: "Nothing_point", hover_time: 0.0}
+  - {x: 0.000, y: 0.000, z: 0.800, yaw: 0.0, pointmode: "Nothing_point", hover_time: 0.0}
+  - {x: 0.000, y: 0.000, z: 0.800, yaw: 0.0, pointmode: "Land_point", hover_time: 0.0}
 
-waypoint_skipping_index: 0
+waypoint_skipping_index: 3
 land_height: 0.30
-align_height: 1.60
+align_height: 1.20
 px4_max_distance: 0.20
 max_yaw_change: 0.20
 
-# 外部 Mission Manager 的 H 降落配置。
-# 外部任务由 switch/auto_land=true 启用 AUTO.LAND；
-# H 证据必须来自 camera_init、晚于 LAND 命令并持续满足新鲜度与稳定帧数。
+# 外部 Mission Manager 终局 H 对齐参数；旧固定航线状态机不使用这组状态。
 external_landing:
   frame: camera_init
   # 正式链直接消费视觉 typed map detection；旧 PoseStamped 仅留 legacy 模式。
   detections_topic: /uav_vision/detections_mapped
-  # 1 m H + installed camera: acquire the complete ring before descent.
-  capture_height: 1.60
+  capture_height: 0.75
   auto_land_height: 0.40
   alignment_tolerance: 0.08
   max_mark_offset: 0.60
@@ -30,9 +40,13 @@ external_landing:
   # 的全场时限，不再另设“重捕”事务截止。
   watchdog_timeout_sec: 120.0
 
-# The formal chain descends after drop_ready through patrol_control. The
-# legacy alignment_control_converter is absent; its progressive_descent
-# parameters do not control this run. The launch uses a 0.40 m position lead.
+progressive_descent:
+  enable: true
+  target_height: 0.40
+  intermediate_height: 0.70
+  descent_duration: 5.0
+  final_descent_duration: 2.0
+  min_detection_count: 5
 
 alignment:
   threshold: 20.0
@@ -51,6 +65,7 @@ threshould:
   planner_min_pub_threshould: 0.025
 
 switch:
+  # New visual fixed-route validation must use the obstacle-aware planner.
   flag_planner_px4: 0
   flag_landing_detect: 1
   # patrol_control reads this parameter as bool; use a YAML boolean so ROS
@@ -68,6 +83,8 @@ drop_system:
   dynamic_slot_offsets: [[0.0, 0.0], [0.0, 0.0], [0.0, 0.0]]
 
 uav_vision:
+  # New visual candidates are global memory results; do not rewrite the
+  # fixed route's accepted class set whenever the best candidate changes.
   update_goal_from_selected_target: false
   require_release_permission: true
   release_permission_state_topic: /mission/release_permission_active
@@ -76,14 +93,9 @@ uav_vision:
   selected_target_timeout: 1.0
   drop_offset_timeout: 1.0
   pixel_to_meter_ratio: 0.0015
-  drop_metric_scale_enabled: true
-  drop_camera_info_topic: /camera/camera_info
-  drop_camera_frame: downward_camera_optical_frame
-  drop_map_frame: camera_init
-  drop_ground_z: -0.22
-  drop_tf_max_age_sec: 0.20
-  # 新机架安装方向：图像向右=-body_y，图像向下=-body_x。
-  pixel_to_body_matrix: [0.0, -1.0, -1.0, 0.0]
+  # camera optical axes for the downward q=(0,1,0,0) simulation mount:
+  # body_x=-image_x and body_y=image_y.
+  pixel_to_body_matrix: [-1.0, 0.0, 0.0, 1.0]
   max_movement_distance: 0.5
   drop_circle_radius_m: 0.5
   drop_cross_radius_m: 0.5
