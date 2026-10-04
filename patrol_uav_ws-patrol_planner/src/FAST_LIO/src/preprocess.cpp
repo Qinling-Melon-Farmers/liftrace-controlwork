@@ -11,7 +11,7 @@ Preprocess::Preprocess()
   SCAN_RATE = 10;
   group_size = 8;
   disA = 0.01;
-  disA = 0.1; // B?
+  disB = 0.1;
   p2l_ratio = 225;
   limit_maxmid =6.25;
   limit_midmin =6.25;
@@ -49,6 +49,15 @@ void Preprocess::process(const livox_ros_driver::CustomMsg::ConstPtr &msg, Point
 
 void Preprocess::process(const sensor_msgs::PointCloud2::ConstPtr &msg, PointCloudXYZI::Ptr &pcl_out)
 {
+  // PCL 1.10 conversion takes &points[0] even for an empty cloud.
+  if (msg->width == 0 || msg->height == 0)
+  {
+    pl_full.clear();
+    pl_corn.clear();
+    pl_surf.clear();
+    pcl_out->clear();
+    return;
+  }
   switch (time_unit)
   {
     case SEC:
@@ -234,6 +243,7 @@ void Preprocess::oust64_handler(const sensor_msgs::PointCloud2::ConstPtr &msg)
     {
       PointCloudXYZI &pl = pl_buff[j];
       int linesize = pl.size();
+      if (linesize < 2) continue;
       vector<orgtype> &types = typess[j];
       types.clear();
       types.resize(linesize);
@@ -458,7 +468,11 @@ void Preprocess::velodyne_handler(const sensor_msgs::PointCloud2::ConstPtr &msg)
 void Preprocess::sim_handler(const sensor_msgs::PointCloud2::ConstPtr &msg) {
     pl_surf.clear();
     pl_full.clear();
-    pcl::PointCloud<pcl::PointXYZI> pl_orig;
+    // The Gazebo MID360 plugin publishes an XYZ-only PointCloud2.  Parse only
+    // fields that are present instead of asking PCL for a synthetic intensity
+    // field on every frame; downstream FAST-LIO still receives PointType with
+    // a deterministic zero intensity.
+    pcl::PointCloud<pcl::PointXYZ> pl_orig;
     pcl::fromROSMsg(*msg, pl_orig);
     int plsize = pl_orig.size();
     pl_surf.reserve(plsize);
@@ -466,12 +480,11 @@ void Preprocess::sim_handler(const sensor_msgs::PointCloud2::ConstPtr &msg) {
         double range = pl_orig.points[i].x * pl_orig.points[i].x + pl_orig.points[i].y * pl_orig.points[i].y +
                        pl_orig.points[i].z * pl_orig.points[i].z;
         if (range < blind * blind) continue;
-        Eigen::Vector3d pt_vec;
         PointType added_pt;
         added_pt.x = pl_orig.points[i].x;
         added_pt.y = pl_orig.points[i].y;
         added_pt.z = pl_orig.points[i].z;
-        added_pt.intensity = pl_orig.points[i].intensity;
+        added_pt.intensity = 0.0;
         added_pt.normal_x = 0;
         added_pt.normal_y = 0;
         added_pt.normal_z = 0;
@@ -491,10 +504,11 @@ void Preprocess::give_feature(pcl::PointCloud<PointType> &pl, vector<orgtype> &t
   }
   uint head = 0;
 
-  while(types[head].range < blind)
+  while(head < plsize && types[head].range < blind)
   {
     head++;
   }
+  if (head == plsize) return;
 
   // Surf
   plsize2 = (plsize > group_size) ? (plsize - group_size) : 0;
@@ -825,7 +839,11 @@ int Preprocess::plane_judge(const PointCloudXYZI &pl, vector<orgtype> &types, ui
   
   for(;;)
   {
-    if((i_cur >= pl.size()) || (i_nex >= pl.size())) break;
+    if((i_cur >= pl.size()) || (i_nex >= pl.size()))
+    {
+      curr_direct.setZero();
+      return 0;
+    }
 
     if(types[i_nex].range < blind)
     {
@@ -839,6 +857,13 @@ int Preprocess::plane_judge(const PointCloudXYZI &pl, vector<orgtype> &types, ui
     if(two_dis >= group_dis)
     {
       break;
+    }
+    // The last point has no next-point distance. An exhausted group is not
+    // a plane, and must never return pl.size() as an inclusive endpoint.
+    if (i_nex + 1 == pl.size())
+    {
+      curr_direct.setZero();
+      return 0;
     }
     disarr.push_back(types[i_nex].dista);
     i_nex++;
