@@ -10,7 +10,9 @@
 - /uav_vision/targets        — 所有活跃候选 (TargetCandidateArray)
 - /uav_vision/selected_target — 最高优先级已确认目标 (TargetCandidate)
 """
+import threading
 import math
+
 import rospy
 from geometry_msgs.msg import Point
 from std_msgs.msg import String
@@ -18,6 +20,12 @@ from std_srvs.srv import Empty, EmptyResponse
 from uav_vision.msg import (TargetDetection, TargetDetectionArray,
                              TargetCandidate, TargetCandidateArray)
 from sensor_msgs.msg import RegionOfInterest
+from uav_vision.target_selection_policy import (
+    choose_selected_candidate,
+    detection_frame_is_usable,
+    detection_stamp_after_reset,
+    resolve_class_profile,
+)
 
 # 候选状态
 (ST_DETECTED, ST_OBSERVING, ST_CONFIRMED, ST_REJECTED, ST_EXPIRED) = range(5)
@@ -33,9 +41,11 @@ class CandidateRecord:
                  'consecutive_observe_count', 'first_seen', 'last_seen',
                  'last_center', 'center_refined', 'center_source',
                  'association_valid', 'reject_reason', 'map_valid',
-                 'map_point', 'map_frame', 'map_quality', 'map_weight',
+                 'current_map_valid', 'map_point', 'map_frame',
+                 'map_quality', 'map_weight',
                  'transform_age_sec', 'class_votes', 'class_max_confidence',
-                 'pending_class', 'pending_class_count')
+                 'pending_class', 'pending_class_count', 'pending_class_vote',
+                 'observed_class', 'observed_class_count')
 
     def __init__(self, cid, det, now):
         self.id = cid
@@ -54,7 +64,11 @@ class CandidateRecord:
         self.center_source = det.center_source
         self.association_valid = det.association_valid
         self.reject_reason = det.reject_reason
+        # map_valid below describes the sticky fused map memory used for
+        # physical identity.  Selection must instead use whether the current
+        # observation produced a valid map projection.
         self.map_valid = det.map_valid
+        self.current_map_valid = det.map_valid
         self.map_point = Point(det.map_point.x, det.map_point.y, det.map_point.z)
         self.map_frame = det.map_frame
         self.map_quality = det.map_quality
@@ -65,6 +79,9 @@ class CandidateRecord:
         self.class_max_confidence = {det.class_name: det.class_confidence}
         self.pending_class = ""
         self.pending_class_count = 0
+        self.pending_class_vote = 0.0
+        self.observed_class = det.class_name
+        self.observed_class_count = 1
 
     @staticmethod
     def _class_vote_weight(det):
@@ -85,6 +102,7 @@ class CandidateRecord:
                 self.class_confidence, det.class_confidence)
             self.pending_class = ""
             self.pending_class_count = 0
+            self.pending_class_vote = 0.0
             return
 
         if (det.class_name not in STANDARD_CLASSES or
@@ -92,22 +110,31 @@ class CandidateRecord:
                 det.class_confidence < switch_min_confidence):
             self.pending_class = ""
             self.pending_class_count = 0
+            self.pending_class_vote = 0.0
             return
 
         if det.class_name == self.pending_class:
             self.pending_class_count += 1
+            self.pending_class_vote += vote
         else:
             self.pending_class = det.class_name
             self.pending_class_count = 1
+            self.pending_class_vote = vote
 
-        candidate_vote = self.class_votes.get(det.class_name, 0.0)
-        current_vote = self.class_votes.get(self.class_name, 0.0)
+        # A long high-view history must not veto sustained new low-view evidence.
+        # Retain cumulative votes for diagnostics/identity, but compare this
+        # consecutive challenge with a bounded incumbent evidence window.
+        candidate_vote = self.pending_class_vote
+        current_vote = min(self.class_votes.get(self.class_name, 0.0),
+                           max(0.001, float(self.class_confidence) *
+                               float(self.geometry_confidence)) * switch_frames)
         if (self.pending_class_count >= switch_frames and
                 candidate_vote >= current_vote * switch_vote_ratio):
             self.class_name = det.class_name
             self.class_confidence = self.class_max_confidence[det.class_name]
             self.pending_class = ""
             self.pending_class_count = 0
+            self.pending_class_vote = 0.0
 
     def _update_map(self, det):
         if not det.map_valid:
@@ -136,26 +163,57 @@ class CandidateRecord:
         self.map_weight = total_weight
 
     def update(self, det, now, confirm_frames, switch_frames,
-               switch_min_confidence, switch_vote_ratio):
+               switch_min_confidence, switch_vote_ratio, max_gap_sec=0.0):
+        if now <= self.last_seen:
+            return  # Duplicate/out-of-order source images are not new evidence.
+        if max_gap_sec > 0.0 and (now - self.last_seen).to_sec() > max_gap_sec:
+            self.reset_confirmation()
+        if self.observed_class == det.class_name:
+            self.observed_class_count += 1
+        else:
+            self.observed_class = det.class_name
+            self.observed_class_count = 1
+        previous_class = self.class_name
         self._update_class(det, switch_frames, switch_min_confidence,
                            switch_vote_ratio)
+        class_supported = det.class_name == self.class_name
+        if not class_supported or previous_class != self.class_name:
+            if self.state not in (ST_REJECTED, ST_EXPIRED):
+                self.state = ST_DETECTED
         self.geometry_confidence = max(self.geometry_confidence, det.geometry_confidence)
         self.roi = det.roi
         self.center_px = det.center_px
         self.last_center = (det.center_px.x, det.center_px.y)
         self.last_seen = now
         self.observe_count += 1
-        self.consecutive_observe_count += 1
+        self.consecutive_observe_count = (
+            self.observed_class_count if class_supported else 0)
         self.center_refined = det.center_refined
         self.center_source = det.center_source
         self.association_valid = det.association_valid
         self.reject_reason = det.reject_reason
         self.transform_age_sec = det.transform_age_sec
+        self.current_map_valid = det.map_valid and class_supported
         self._update_map(det)
         self._advance_state(confirm_frames)
 
     def merge_from(self, other):
         """Merge a converged duplicate without inventing extra hit streaks."""
+        conflicting_class = self.class_name != other.class_name
+        newer = other.last_seen.to_sec() > self.last_seen.to_sec()
+        same_stamp = other.last_seen.to_sec() == self.last_seen.to_sec()
+        if newer:
+            self.current_map_valid = other.current_map_valid
+            self.observed_class = other.observed_class
+            self.observed_class_count = other.observed_class_count
+            self.consecutive_observe_count = other.consecutive_observe_count
+            self.pending_class = other.pending_class
+            self.pending_class_count = other.pending_class_count
+            self.pending_class_vote = other.pending_class_vote
+        elif same_stamp:
+            self.current_map_valid = self.current_map_valid or other.current_map_valid
+            self.consecutive_observe_count = max(
+                self.consecutive_observe_count, other.consecutive_observe_count)
         if self.map_valid and other.map_valid:
             total_weight = self.map_weight + other.map_weight
             if total_weight > 0.0:
@@ -177,17 +235,8 @@ class CandidateRecord:
         for class_name, confidence in other.class_max_confidence.items():
             self.class_max_confidence[class_name] = max(
                 self.class_max_confidence.get(class_name, 0.0), confidence)
-        standard_votes = {
-            name: vote for name, vote in self.class_votes.items()
-            if name in STANDARD_CLASSES}
-        if standard_votes:
-            self.class_name = max(
-                standard_votes, key=lambda name: (
-                    standard_votes[name],
-                    self.class_max_confidence.get(name, 0.0)))
-            self.class_confidence = self.class_max_confidence[
-                self.class_name]
-
+        # Merging physical IDs is not new semantic evidence. In particular an
+        # old duplicate's accumulated class votes must not relabel fresh data.
         if other.last_seen.to_sec() > self.last_seen.to_sec():
             self.roi = other.roi
             self.center_px = other.center_px
@@ -200,12 +249,11 @@ class CandidateRecord:
         self.first_seen = min(self.first_seen, other.first_seen)
         self.last_seen = max(self.last_seen, other.last_seen)
         self.observe_count = max(self.observe_count, other.observe_count)
-        self.consecutive_observe_count = max(
-            self.consecutive_observe_count,
-            other.consecutive_observe_count)
         self.geometry_confidence = max(
             self.geometry_confidence, other.geometry_confidence)
         self.state = max(self.state, other.state)
+        if conflicting_class or self.observed_class != self.class_name:
+            self.reset_confirmation()
 
     def _advance_state(self, confirm_frames):
         if self.state == ST_REJECTED or self.state == ST_EXPIRED:
@@ -215,8 +263,26 @@ class CandidateRecord:
         elif self.consecutive_observe_count >= max(confirm_frames - 1, 1):
             self.state = ST_OBSERVING
 
-    def mark_missed(self):
+    def reset_confirmation(self):
         self.consecutive_observe_count = 0
+        self.observed_class_count = 0
+        self.pending_class_vote = 0.0
+        self.current_map_valid = False
+        self.pending_class = ""
+        self.pending_class_count = 0
+        if self.state not in (ST_REJECTED, ST_EXPIRED):
+            self.state = ST_DETECTED
+
+    def mark_missed(self, now=None, max_gap_sec=0.0):
+        self.current_map_valid = False
+        if (max_gap_sec > 0.0 and now is not None and
+                0.0 <= (now - self.last_seen).to_sec() <= max_gap_sec):
+            return
+        self.consecutive_observe_count = 0
+        self.observed_class_count = 0
+        self.pending_class = ""
+        self.pending_class_count = 0
+        self.pending_class_vote = 0.0
         if self.state != ST_CONFIRMED:
             self.state = ST_DETECTED
 
@@ -242,7 +308,9 @@ class CandidateRecord:
         msg.center_source = self.center_source
         msg.association_valid = self.association_valid
         msg.reject_reason = self.reject_reason
-        msg.map_valid = self.map_valid
+        # Keep publishing the fused historical point for stable identity and
+        # diagnostics, but admission sees only current-frame map validity.
+        msg.map_valid = self.current_map_valid
         msg.map_point = self.map_point
         msg.map_frame = self.map_frame
         msg.map_quality = self.map_quality
@@ -258,6 +326,7 @@ class CandidateRecord:
 class TargetMemory:
     def __init__(self):
         rospy.init_node("target_memory")
+        self._state_lock = threading.RLock()
         self._detections_topic = rospy.get_param("~detections_topic", "/uav_vision/detections")
 
         # 发布
@@ -268,6 +337,13 @@ class TargetMemory:
 
         # ---- 匹配参数 ----
         self._confirm_frames = rospy.get_param("~confirm_frames", 3)
+        self._search_confirmation_max_gap = float(rospy.get_param(
+            "~search_confirmation_max_gap_sec", 0.0))
+        if (not math.isfinite(self._search_confirmation_max_gap) or
+                not 0.0 <= self._search_confirmation_max_gap <= 2.0):
+            raise ValueError("invalid search_confirmation_max_gap_sec")
+        self._last_detection_stamp = None
+        self._mode_cutoff = None
         self._candidate_ttl = rospy.get_param("~candidate_ttl", 3.0)
         self._reject_cooldown = rospy.get_param("~reject_cooldown", 5.0)
         self._match_distance_px = rospy.get_param("~match_distance_px", 80.0)
@@ -277,7 +353,11 @@ class TargetMemory:
         self._map_memory_ttl = rospy.get_param("~map_memory_ttl", 0.0)
         self._require_map_for_candidates = bool(
             rospy.get_param("~require_map_for_candidates", False))
+        self._require_complete_detection_sources = bool(rospy.get_param(
+            "~require_complete_detection_sources", False))
         self._selected_max_age = float(rospy.get_param("~selected_max_age", 0.5))
+        self._class_profile, self._selectable_classes = resolve_class_profile(
+            rospy.get_param("~class_profile", "full"))
         self._class_switch_confirm_frames = max(
             1, int(rospy.get_param("~class_switch_confirm_frames", 2)))
         self._class_switch_min_confidence = float(
@@ -288,7 +368,11 @@ class TargetMemory:
             "~reset_service", "/uav_vision/reset_memory")
         self._align_mode_topic = rospy.get_param(
             "~align_mode_topic", "/uav_vision/align_mode")
-        self._align_mode = "disabled"
+        default_align_mode = str(rospy.get_param(
+            "~default_align_mode", "disabled")).strip()
+        self._align_mode = (
+            default_align_mode
+            if default_align_mode in VALID_ALIGN_MODES else "disabled")
 
         # ---- 优先级权重 ----
         self._priority = {
@@ -303,8 +387,11 @@ class TargetMemory:
         }
 
         # ---- 视觉中断阈值 ----
-        self._cross_conf = rospy.get_param("~cross_class_confidence", 0.70)
-        self._cross_geom = rospy.get_param("~cross_geometry_confidence", 0.85)
+        # red_cross：识别权威在 YOLO（在线同帧 0.89-0.96），类别门槛从严 0.80；
+        # 几何通道职责是中心精修，分数门槛只防退化几何，与标准靶一致取 0.70
+        # （在线 2.0m 斜视角实测约 0.770，原 0.85 会整段拦截）。
+        self._cross_conf = rospy.get_param("~cross_class_confidence", 0.80)
+        self._cross_geom = rospy.get_param("~cross_geometry_confidence", 0.70)
         self._std_conf = rospy.get_param("~std_class_confidence", 0.60)
         self._std_geom = rospy.get_param("~std_geometry_confidence", 0.70)
         self._aux_geom = rospy.get_param("~aux_geometry_confidence", 0.85)
@@ -319,6 +406,7 @@ class TargetMemory:
         self._candidates = {}        # id → CandidateRecord
         self._next_id = 0
         self._rejected = {}          # (class_name, roi_hash) → reject_time
+        self._reset_cutoff = None
 
         # 订阅
         rospy.Subscriber(self._detections_topic, TargetDetectionArray,
@@ -339,6 +427,11 @@ class TargetMemory:
                       self._map_match_distance_m, self._map_memory_ttl)
         rospy.loginfo("  require_map_for_candidates=%s",
                       self._require_map_for_candidates)
+        rospy.loginfo("  require_complete_detection_sources=%s",
+                      self._require_complete_detection_sources)
+        rospy.loginfo("  class_profile=%s selectable_classes=%s",
+                      self._class_profile,
+                      ",".join(sorted(self._selectable_classes)))
         rospy.loginfo("  class_switch=%d consecutive frames min_conf=%.2f vote_ratio=%.2f",
                       self._class_switch_confirm_frames,
                       self._class_switch_min_confidence,
@@ -352,11 +445,16 @@ class TargetMemory:
 
     # ------------------------------------------------------------------
     def _on_align_mode(self, message):
-        mode = message.data.strip()
-        new_mode = mode if mode in VALID_ALIGN_MODES else "disabled"
-        if new_mode != self._align_mode:
-            self._align_mode = new_mode
-            self._publish(rospy.Time.now())
+        with self._state_lock:
+            mode = message.data.strip()
+            new_mode = mode if mode in VALID_ALIGN_MODES else "disabled"
+            if new_mode != self._align_mode:
+                self._align_mode = new_mode
+                if self._search_confirmation_max_gap > 0.0:
+                    self._mode_cutoff = rospy.Time.now()
+                    for candidate in self._candidates.values():
+                        candidate.reset_confirmation()
+                self._publish(rospy.Time.now())
 
     def _allowed_in_current_mode(self, class_name):
         if self._align_mode == "landing":
@@ -369,7 +467,37 @@ class TargetMemory:
 
     # ------------------------------------------------------------------
     def _on_detections(self, msg):
+        with self._state_lock:
+            self._process_detections_locked(msg)
+
+    def _process_detections_locked(self, msg):
+        if not detection_frame_is_usable(
+                self._align_mode, msg.completed_sources,
+                self._require_complete_detection_sources):
+            rospy.logwarn_throttle(
+                2.0,
+                "[TargetMemory] ignore incomplete fusion frame mode=%s sources=%s",
+                self._align_mode, ",".join(msg.completed_sources))
+            return
+        if not detection_stamp_after_reset(
+                msg.header.stamp, self._reset_cutoff):
+            rospy.logwarn_throttle(
+                2.0,
+                "[TargetMemory] ignore pre-reset/unstamped detection stamp=%.6f cutoff=%.6f",
+                msg.header.stamp.to_sec(),
+                self._reset_cutoff.to_sec()
+                if self._reset_cutoff is not None else -1.0)
+            return
         now = msg.header.stamp if msg.header.stamp.to_sec() > 0 else rospy.Time.now()
+        if self._search_confirmation_max_gap > 0.0:
+            if ((self._last_detection_stamp is not None and now <= self._last_detection_stamp) or
+                    (self._mode_cutoff is not None and now <= self._mode_cutoff)):
+                return
+            self._last_detection_stamp = now
+        # Reset before matching so duplicate merging cannot copy a previous
+        # frame's valid projection into the current observation state.
+        for candidate in self._candidates.values():
+            candidate.current_map_valid = False
         frame_has_red_cross = any(
             det.class_name == "red_cross" and
             det.geometry_verified and
@@ -413,7 +541,7 @@ class TargetMemory:
         stale = []
         for cid, cand in self._candidates.items():
             if cid not in matched_ids:
-                cand.mark_missed()
+                cand.mark_missed(now, self._confirmation_gap())
                 was_confirmed = (cand.state == ST_CONFIRMED)
                 ttl = self._map_memory_ttl if cand.map_valid else self._candidate_ttl
                 if ttl > 0.0 and cand.age(now, ttl):
@@ -503,12 +631,15 @@ class TargetMemory:
             return True
         return left_class == right_class
 
+    def _confirmation_gap(self):
+        return self._search_confirmation_max_gap if self._align_mode == "disabled" else 0.0
+
     def _update_candidate(self, candidate, det, now):
         candidate.update(
             det, now, self._confirm_frames,
             self._class_switch_confirm_frames,
             self._class_switch_min_confidence,
-            self._class_switch_vote_ratio)
+            self._class_switch_vote_ratio, self._confirmation_gap())
 
     def _match_or_create(self, det, now, matched_ids):
         """优先用地图距离跨视角匹配，无地图时退回像素近邻。"""
@@ -566,11 +697,17 @@ class TargetMemory:
         return cid
 
     def _on_reset(self, _request):
-        self._candidates.clear()
-        self._rejected.clear()
-        self._next_id = 0
-        self._publish_empty()
-        rospy.loginfo("[TargetMemory] memory reset")
+        with self._state_lock:
+            self._reset_cutoff = rospy.Time.now()
+            self._last_detection_stamp = None
+            self._mode_cutoff = None
+            self._candidates.clear()
+            self._rejected.clear()
+            self._next_id = 0
+            self._publish_empty()
+            rospy.loginfo(
+                "[TargetMemory] memory reset cutoff=%.6f",
+                self._reset_cutoff.to_sec())
         return EmptyResponse()
 
     def _add_rejected(self, cand, now):
@@ -597,16 +734,11 @@ class TargetMemory:
                          reverse=True)
         self._targets_pub.publish(arr)
 
-        # 选最优已确认目标（跳过 priority <= 0 的类别）
-        best = None
-        for t in arr.targets:
-            observation_age = max(0.0, (now - t.last_seen).to_sec())
-            if (t.state >= ST_CONFIRMED and
-                    observation_age <= self._selected_max_age and
-                    self._priority.get(t.class_name, 0) > 0):
-                if best is None or self._priority.get(t.class_name, 0) > \
-                   self._priority.get(best.class_name, 0):
-                    best = t
+        # CONFIRMED 是长期记忆状态；selected 还必须满足当前连续命中、
+        # 地图/关联/拒绝/年龄和比赛 profile 的完整准入条件。
+        best = choose_selected_candidate(
+            arr.targets, now, self._confirm_frames, self._selected_max_age,
+            self._priority, self._selectable_classes, ST_CONFIRMED)
         if best is not None:
             self._selected_pub.publish(best)
 
@@ -624,16 +756,17 @@ class TargetMemory:
     # ------------------------------------------------------------------
     def debug_dump(self):
         """返回当前候选表的可读摘要。"""
-        lines = []
-        for cid, cand in sorted(self._candidates.items()):
-            lines.append(
-                f"  [{cid}] {cand.class_name}  state={STATE_NAMES[cand.state]}  "
-                f"obs={cand.observe_count} streak={cand.consecutive_observe_count}  "
-                f"conf={cand.class_confidence:.2f}  "
-                f"geom={cand.geometry_confidence:.2f}  "
-                f"age={(rospy.Time.now() - cand.last_seen).to_sec():.1f}s"
-            )
-        return "\n".join(lines) if lines else "  (empty)"
+        with self._state_lock:
+            lines = []
+            for cid, cand in sorted(self._candidates.items()):
+                lines.append(
+                    f"  [{cid}] {cand.class_name}  state={STATE_NAMES[cand.state]}  "
+                    f"obs={cand.observe_count} streak={cand.consecutive_observe_count}  "
+                    f"conf={cand.class_confidence:.2f}  "
+                    f"geom={cand.geometry_confidence:.2f}  "
+                    f"age={(rospy.Time.now() - cand.last_seen).to_sec():.1f}s"
+                )
+            return "\n".join(lines) if lines else "  (empty)"
 
 
 def main():
