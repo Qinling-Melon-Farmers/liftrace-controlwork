@@ -89,6 +89,13 @@ add_dependencies(circle_detector_node
   ${${PROJECT_NAME}_EXPORTED_TARGETS}
 )
 
+if(CATKIN_ENABLE_TESTING)
+  catkin_add_gtest(h_stroke_detector_test test/h_stroke_detector_test.cpp)
+  if(TARGET h_stroke_detector_test)
+    target_link_libraries(h_stroke_detector_test ${OpenCV_LIBRARIES})
+  endif()
+endif()
+
 # ---- landing_detector_node ----
 add_executable(landing_detector_node
   src/landing_detector_node.cpp
