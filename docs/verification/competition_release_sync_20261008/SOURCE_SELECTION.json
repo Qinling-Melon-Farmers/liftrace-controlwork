@@ -1,0 +1,763 @@
+{
+  "branch": "板端参考分支",
+  "before_head": "a0f9c9aa6e6246f1633ec7cd0c55f1c58ccb0bd3",
+  "F_source_commit": "f79c2a82e727530f42a371dbf30805b310bbaf8f",
+  "upstream_before": "a0f9c9aa6e6246f1633ec7cd0c55f1c58ccb0bd3",
+  "operations": [
+    {
+      "source": "deployment/competition/README.md",
+      "destination": "deployment/competition/README.md",
+      "operation": "selected F source",
+      "source_last_commit": {
+        "commit": "f79c2a82e727530f42a371dbf30805b310bbaf8f",
+        "author": "Qinling-Melon-Farmers",
+        "author_email": "xiaohuaijin@mail.nwpu.edu.cn",
+        "authored_at": "2026-10-08T00:58:49+08:00",
+        "subject": "fix: 回收已验收整机运行链并保护比赛参数"
+      }
+    },
+    {
+      "source": "deployment/competition/build.sh",
+      "destination": "deployment/competition/build.sh",
+      "operation": "selected F source",
+      "source_last_commit": {
+        "commit": "f5c2e10e08c9ccba4a3a8fcaeb5eb811a1ffc6ab",
+        "author": "Qinling-Melon-Farmers",
+        "author_email": "xiaohuaijin@mail.nwpu.edu.cn",
+        "authored_at": "2026-10-05T12:11:14+08:00",
+        "subject": "fix: 补齐三线程构建与专项配置及轻量诊断录包"
+      }
+    },
+    {
+      "source": "deployment/competition/candidates/rectangle_motion.yaml",
+      "destination": "deployment/competition/candidates/rectangle_motion.yaml",
+      "operation": "selected F source",
+      "source_last_commit": {
+        "commit": "f79c2a82e727530f42a371dbf30805b310bbaf8f",
+        "author": "Qinling-Melon-Farmers",
+        "author_email": "xiaohuaijin@mail.nwpu.edu.cn",
+        "authored_at": "2026-10-08T00:58:49+08:00",
+        "subject": "fix: 回收已验收整机运行链并保护比赛参数"
+      }
+    },
+    {
+      "source": "deployment/competition/candidates/snake_motion.yaml",
+      "destination": "deployment/competition/candidates/snake_motion.yaml",
+      "operation": "selected F source",
+      "source_last_commit": {
+        "commit": "f79c2a82e727530f42a371dbf30805b310bbaf8f",
+        "author": "Qinling-Melon-Farmers",
+        "author_email": "xiaohuaijin@mail.nwpu.edu.cn",
+        "authored_at": "2026-10-08T00:58:49+08:00",
+        "subject": "fix: 回收已验收整机运行链并保护比赛参数"
+      }
+    },
+    {
+      "source": "deployment/competition/check_wiring.py",
+      "destination": "deployment/competition/check_wiring.py",
+      "operation": "selected F source",
+      "source_last_commit": {
+        "commit": "f79c2a82e727530f42a371dbf30805b310bbaf8f",
+        "author": "Qinling-Melon-Farmers",
+        "author_email": "xiaohuaijin@mail.nwpu.edu.cn",
+        "authored_at": "2026-10-08T00:58:49+08:00",
+        "subject": "fix: 回收已验收整机运行链并保护比赛参数"
+      }
+    },
+    {
+      "source": "deployment/competition/environment.sh",
+      "destination": "deployment/competition/environment.sh",
+      "operation": "selected F source",
+      "source_last_commit": {
+        "commit": "f79c2a82e727530f42a371dbf30805b310bbaf8f",
+        "author": "Qinling-Melon-Farmers",
+        "author_email": "xiaohuaijin@mail.nwpu.edu.cn",
+        "authored_at": "2026-10-08T00:58:49+08:00",
+        "subject": "fix: 回收已验收整机运行链并保护比赛参数"
+      }
+    },
+    {
+      "source": "deployment/competition/field.example.yaml",
+      "destination": "deployment/competition/field.example.yaml",
+      "operation": "selected F source",
+      "source_last_commit": {
+        "commit": "f79c2a82e727530f42a371dbf30805b310bbaf8f",
+        "author": "Qinling-Melon-Farmers",
+        "author_email": "xiaohuaijin@mail.nwpu.edu.cn",
+        "authored_at": "2026-10-08T00:58:49+08:00",
+        "subject": "fix: 回收已验收整机运行链并保护比赛参数"
+      }
+    },
+    {
+      "source": "deployment/competition/field_20261007_validated.yaml",
+      "destination": "deployment/competition/field_20261007_validated.yaml",
+      "operation": "selected F source",
+      "source_last_commit": {
+        "commit": "f79c2a82e727530f42a371dbf30805b310bbaf8f",
+        "author": "Qinling-Melon-Farmers",
+        "author_email": "xiaohuaijin@mail.nwpu.edu.cn",
+        "authored_at": "2026-10-08T00:58:49+08:00",
+        "subject": "fix: 回收已验收整机运行链并保护比赛参数"
+      }
+    },
+    {
+      "source": "deployment/competition/package.sh",
+      "destination": "deployment/competition/package.sh",
+      "operation": "selected F source",
+      "source_last_commit": {
+        "commit": "31c741ddebbefeafea8f259d83633b1b074ea6cf",
+        "author": "Qinling-Melon-Farmers",
+        "author_email": "xiaohuaijin@mail.nwpu.edu.cn",
+        "authored_at": "2026-10-03T16:01:44+08:00",
+        "subject": "chore: 核验独立整机源码导出并补齐入口执行位"
+      }
+    },
+    {
+      "source": "deployment/competition/start.sh",
+      "destination": "deployment/competition/start.sh",
+      "operation": "selected F source",
+      "source_last_commit": {
+        "commit": "31c741ddebbefeafea8f259d83633b1b074ea6cf",
+        "author": "Qinling-Melon-Farmers",
+        "author_email": "xiaohuaijin@mail.nwpu.edu.cn",
+        "authored_at": "2026-10-03T16:01:44+08:00",
+        "subject": "chore: 核验独立整机源码导出并补齐入口执行位"
+      }
+    },
+    {
+      "source": "docs/verification/competition_release_20261008/original_competition_parameters.json",
+      "destination": "docs/verification/competition_release_20261008/original_competition_parameters.json",
+      "operation": "selected F source",
+      "source_last_commit": {
+        "commit": "f79c2a82e727530f42a371dbf30805b310bbaf8f",
+        "author": "Qinling-Melon-Farmers",
+        "author_email": "xiaohuaijin@mail.nwpu.edu.cn",
+        "authored_at": "2026-10-08T00:58:49+08:00",
+        "subject": "fix: 回收已验收整机运行链并保护比赛参数"
+      }
+    },
+    {
+      "source": "patrol_uav_ws-patrol_planner/src/actuator_pwm/CMakeLists.txt",
+      "destination": "patrol_uav_ws-patrol_planner/src/actuator_pwm/CMakeLists.txt",
+      "operation": "selected F source",
+      "source_last_commit": {
+        "commit": "f79c2a82e727530f42a371dbf30805b310bbaf8f",
+        "author": "Qinling-Melon-Farmers",
+        "author_email": "xiaohuaijin@mail.nwpu.edu.cn",
+        "authored_at": "2026-10-08T00:58:49+08:00",
+        "subject": "fix: 回收已验收整机运行链并保护比赛参数"
+      }
+    },
+    {
+      "source": "patrol_uav_ws-patrol_planner/src/actuator_pwm/README.md",
+      "destination": "patrol_uav_ws-patrol_planner/src/actuator_pwm/README.md",
+      "operation": "selected F source",
+      "source_last_commit": {
+        "commit": "f79c2a82e727530f42a371dbf30805b310bbaf8f",
+        "author": "Qinling-Melon-Farmers",
+        "author_email": "xiaohuaijin@mail.nwpu.edu.cn",
+        "authored_at": "2026-10-08T00:58:49+08:00",
+        "subject": "fix: 回收已验收整机运行链并保护比赛参数"
+      }
+    },
+    {
+      "source": "patrol_uav_ws-patrol_planner/src/actuator_pwm/include/actuator_pwm/CheckedPulse.h",
+      "destination": "patrol_uav_ws-patrol_planner/src/actuator_pwm/include/actuator_pwm/CheckedPulse.h",
+      "operation": "selected F source",
+      "source_last_commit": {
+        "commit": "f79c2a82e727530f42a371dbf30805b310bbaf8f",
+        "author": "Qinling-Melon-Farmers",
+        "author_email": "xiaohuaijin@mail.nwpu.edu.cn",
+        "authored_at": "2026-10-08T00:58:49+08:00",
+        "subject": "fix: 回收已验收整机运行链并保护比赛参数"
+      }
+    },
+    {
+      "source": "patrol_uav_ws-patrol_planner/src/actuator_pwm/include/actuator_pwm/PWMController.h",
+      "destination": "patrol_uav_ws-patrol_planner/src/actuator_pwm/include/actuator_pwm/PWMController.h",
+      "operation": "selected F source",
+      "source_last_commit": {
+        "commit": "f79c2a82e727530f42a371dbf30805b310bbaf8f",
+        "author": "Qinling-Melon-Farmers",
+        "author_email": "xiaohuaijin@mail.nwpu.edu.cn",
+        "authored_at": "2026-10-08T00:58:49+08:00",
+        "subject": "fix: 回收已验收整机运行链并保护比赛参数"
+      }
+    },
+    {
+      "source": "patrol_uav_ws-patrol_planner/src/actuator_pwm/include/actuator_pwm/PassiveStartup.h",
+      "destination": "patrol_uav_ws-patrol_planner/src/actuator_pwm/include/actuator_pwm/PassiveStartup.h",
+      "operation": "selected F source",
+      "source_last_commit": {
+        "commit": "f79c2a82e727530f42a371dbf30805b310bbaf8f",
+        "author": "Qinling-Melon-Farmers",
+        "author_email": "xiaohuaijin@mail.nwpu.edu.cn",
+        "authored_at": "2026-10-08T00:58:49+08:00",
+        "subject": "fix: 回收已验收整机运行链并保护比赛参数"
+      }
+    },
+    {
+      "source": "patrol_uav_ws-patrol_planner/src/actuator_pwm/include/actuator_pwm/SlotCalibration.h",
+      "destination": "patrol_uav_ws-patrol_planner/src/actuator_pwm/include/actuator_pwm/SlotCalibration.h",
+      "operation": "selected F source",
+      "source_last_commit": {
+        "commit": "f79c2a82e727530f42a371dbf30805b310bbaf8f",
+        "author": "Qinling-Melon-Farmers",
+        "author_email": "xiaohuaijin@mail.nwpu.edu.cn",
+        "authored_at": "2026-10-08T00:58:49+08:00",
+        "subject": "fix: 回收已验收整机运行链并保护比赛参数"
+      }
+    },
+    {
+      "source": "patrol_uav_ws-patrol_planner/src/actuator_pwm/init_pwm.sh",
+      "destination": "patrol_uav_ws-patrol_planner/src/actuator_pwm/init_pwm.sh",
+      "operation": "selected F source",
+      "source_last_commit": {
+        "commit": "f79c2a82e727530f42a371dbf30805b310bbaf8f",
+        "author": "Qinling-Melon-Farmers",
+        "author_email": "xiaohuaijin@mail.nwpu.edu.cn",
+        "authored_at": "2026-10-08T00:58:49+08:00",
+        "subject": "fix: 回收已验收整机运行链并保护比赛参数"
+      }
+    },
+    {
+      "source": "patrol_uav_ws-patrol_planner/src/actuator_pwm/launch/launch_all.launch",
+      "destination": "patrol_uav_ws-patrol_planner/src/actuator_pwm/launch/launch_all.launch",
+      "operation": "selected F source",
+      "source_last_commit": {
+        "commit": "f79c2a82e727530f42a371dbf30805b310bbaf8f",
+        "author": "Qinling-Melon-Farmers",
+        "author_email": "xiaohuaijin@mail.nwpu.edu.cn",
+        "authored_at": "2026-10-08T00:58:49+08:00",
+        "subject": "fix: 回收已验收整机运行链并保护比赛参数"
+      }
+    },
+    {
+      "source": "patrol_uav_ws-patrol_planner/src/actuator_pwm/package.xml",
+      "destination": "patrol_uav_ws-patrol_planner/src/actuator_pwm/package.xml",
+      "operation": "selected F source",
+      "source_last_commit": {
+        "commit": "78b17e5b5c76ce0d4bb0c47a57bc18cb2f4ee4a8",
+        "author": "Qinling-Melon-Farmers",
+        "author_email": "xiaohuaijin@mail.nwpu.edu.cn",
+        "authored_at": "2026-10-03T15:59:55+08:00",
+        "subject": "feat: 接齐高位正赛独立入口并纳入现场舵机链"
+      }
+    },
+    {
+      "source": "patrol_uav_ws-patrol_planner/src/actuator_pwm/src/PWMController.cpp",
+      "destination": "patrol_uav_ws-patrol_planner/src/actuator_pwm/src/PWMController.cpp",
+      "operation": "selected F source",
+      "source_last_commit": {
+        "commit": "f79c2a82e727530f42a371dbf30805b310bbaf8f",
+        "author": "Qinling-Melon-Farmers",
+        "author_email": "xiaohuaijin@mail.nwpu.edu.cn",
+        "authored_at": "2026-10-08T00:58:49+08:00",
+        "subject": "fix: 回收已验收整机运行链并保护比赛参数"
+      }
+    },
+    {
+      "source": "patrol_uav_ws-patrol_planner/src/actuator_pwm/src/pwm_node1.cpp",
+      "destination": "patrol_uav_ws-patrol_planner/src/actuator_pwm/src/pwm_node1.cpp",
+      "operation": "selected F source",
+      "source_last_commit": {
+        "commit": "f79c2a82e727530f42a371dbf30805b310bbaf8f",
+        "author": "Qinling-Melon-Farmers",
+        "author_email": "xiaohuaijin@mail.nwpu.edu.cn",
+        "authored_at": "2026-10-08T00:58:49+08:00",
+        "subject": "fix: 回收已验收整机运行链并保护比赛参数"
+      }
+    },
+    {
+      "source": "patrol_uav_ws-patrol_planner/src/actuator_pwm/test_checked_pulse.cpp",
+      "destination": "patrol_uav_ws-patrol_planner/src/actuator_pwm/test_checked_pulse.cpp",
+      "operation": "selected F source",
+      "source_last_commit": {
+        "commit": "78b17e5b5c76ce0d4bb0c47a57bc18cb2f4ee4a8",
+        "author": "Qinling-Melon-Farmers",
+        "author_email": "xiaohuaijin@mail.nwpu.edu.cn",
+        "authored_at": "2026-10-03T15:59:55+08:00",
+        "subject": "feat: 接齐高位正赛独立入口并纳入现场舵机链"
+      }
+    },
+    {
+      "source": "patrol_uav_ws-patrol_planner/src/actuator_pwm/test_pwm_device.cpp",
+      "destination": "patrol_uav_ws-patrol_planner/src/actuator_pwm/test_pwm_device.cpp",
+      "operation": "selected F source",
+      "source_last_commit": {
+        "commit": "05218459d74730ac806ca662a42def58be897179",
+        "author": "Qinling-Melon-Farmers",
+        "author_email": "xiaohuaijin@mail.nwpu.edu.cn",
+        "authored_at": "2026-10-06T20:19:17+08:00",
+        "subject": "fix: 左仓迁移GPIO1_D2并按设备地址选择PWM"
+      }
+    },
+    {
+      "source": "patrol_uav_ws-patrol_planner/src/actuator_pwm/test_pwm_device.py",
+      "destination": "patrol_uav_ws-patrol_planner/src/actuator_pwm/test_pwm_device.py",
+      "operation": "selected F source",
+      "source_last_commit": {
+        "commit": "05218459d74730ac806ca662a42def58be897179",
+        "author": "Qinling-Melon-Farmers",
+        "author_email": "xiaohuaijin@mail.nwpu.edu.cn",
+        "authored_at": "2026-10-06T20:19:17+08:00",
+        "subject": "fix: 左仓迁移GPIO1_D2并按设备地址选择PWM"
+      }
+    },
+    {
+      "source": "patrol_uav_ws-patrol_planner/src/actuator_pwm/tests/test_startup.cpp",
+      "destination": "patrol_uav_ws-patrol_planner/src/actuator_pwm/tests/test_startup.cpp",
+      "operation": "selected F source",
+      "source_last_commit": {
+        "commit": "f79c2a82e727530f42a371dbf30805b310bbaf8f",
+        "author": "Qinling-Melon-Farmers",
+        "author_email": "xiaohuaijin@mail.nwpu.edu.cn",
+        "authored_at": "2026-10-08T00:58:49+08:00",
+        "subject": "fix: 回收已验收整机运行链并保护比赛参数"
+      }
+    },
+    {
+      "source": "patrol_uav_ws-patrol_planner/src/patrol_control/CMakeLists.txt",
+      "destination": "patrol_uav_ws-patrol_planner/src/patrol_control/CMakeLists.txt",
+      "operation": "selected F source",
+      "source_last_commit": {
+        "commit": "f79c2a82e727530f42a371dbf30805b310bbaf8f",
+        "author": "Qinling-Melon-Farmers",
+        "author_email": "xiaohuaijin@mail.nwpu.edu.cn",
+        "authored_at": "2026-10-08T00:58:49+08:00",
+        "subject": "fix: 回收已验收整机运行链并保护比赛参数"
+      }
+    },
+    {
+      "source": "patrol_uav_ws-patrol_planner/src/patrol_control/include/patrol_control/patrol_control.h",
+      "destination": "patrol_uav_ws-patrol_planner/src/patrol_control/include/patrol_control/patrol_control.h",
+      "operation": "selected F source",
+      "source_last_commit": {
+        "commit": "f79c2a82e727530f42a371dbf30805b310bbaf8f",
+        "author": "Qinling-Melon-Farmers",
+        "author_email": "xiaohuaijin@mail.nwpu.edu.cn",
+        "authored_at": "2026-10-08T00:58:49+08:00",
+        "subject": "fix: 回收已验收整机运行链并保护比赛参数"
+      }
+    },
+    {
+      "source": "patrol_uav_ws-patrol_planner/src/patrol_control/src/patrol_control.cpp",
+      "destination": "patrol_uav_ws-patrol_planner/src/patrol_control/src/patrol_control.cpp",
+      "operation": "selected F source",
+      "source_last_commit": {
+        "commit": "f79c2a82e727530f42a371dbf30805b310bbaf8f",
+        "author": "Qinling-Melon-Farmers",
+        "author_email": "xiaohuaijin@mail.nwpu.edu.cn",
+        "authored_at": "2026-10-08T00:58:49+08:00",
+        "subject": "fix: 回收已验收整机运行链并保护比赛参数"
+      }
+    },
+    {
+      "source": "patrol_uav_ws-patrol_planner/src/patrol_control/test/test_external_landing_handoff.py",
+      "destination": "patrol_uav_ws-patrol_planner/src/patrol_control/test/test_external_landing_handoff.py",
+      "operation": "selected F source",
+      "source_last_commit": {
+        "commit": "f79c2a82e727530f42a371dbf30805b310bbaf8f",
+        "author": "Qinling-Melon-Farmers",
+        "author_email": "xiaohuaijin@mail.nwpu.edu.cn",
+        "authored_at": "2026-10-08T00:58:49+08:00",
+        "subject": "fix: 回收已验收整机运行链并保护比赛参数"
+      }
+    },
+    {
+      "source": "patrol_uav_ws-patrol_planner/src/patrol_control/test/test_height_hold.py",
+      "destination": "patrol_uav_ws-patrol_planner/src/patrol_control/test/test_height_hold.py",
+      "operation": "selected F source",
+      "source_last_commit": {
+        "commit": "f79c2a82e727530f42a371dbf30805b310bbaf8f",
+        "author": "Qinling-Melon-Farmers",
+        "author_email": "xiaohuaijin@mail.nwpu.edu.cn",
+        "authored_at": "2026-10-08T00:58:49+08:00",
+        "subject": "fix: 回收已验收整机运行链并保护比赛参数"
+      }
+    },
+    {
+      "source": "patrol_uav_ws-patrol_planner/src/patrol_control/test/test_new_vision_config.py",
+      "destination": "patrol_uav_ws-patrol_planner/src/patrol_control/test/test_new_vision_config.py",
+      "operation": "selected F source",
+      "source_last_commit": {
+        "commit": "f79c2a82e727530f42a371dbf30805b310bbaf8f",
+        "author": "Qinling-Melon-Farmers",
+        "author_email": "xiaohuaijin@mail.nwpu.edu.cn",
+        "authored_at": "2026-10-08T00:58:49+08:00",
+        "subject": "fix: 回收已验收整机运行链并保护比赛参数"
+      }
+    },
+    {
+      "source": "patrol_uav_ws-patrol_planner/src/patrol_control/test/test_recovery_hold.py",
+      "destination": "patrol_uav_ws-patrol_planner/src/patrol_control/test/test_recovery_hold.py",
+      "operation": "selected F source",
+      "source_last_commit": {
+        "commit": "f79c2a82e727530f42a371dbf30805b310bbaf8f",
+        "author": "Qinling-Melon-Farmers",
+        "author_email": "xiaohuaijin@mail.nwpu.edu.cn",
+        "authored_at": "2026-10-08T00:58:49+08:00",
+        "subject": "fix: 回收已验收整机运行链并保护比赛参数"
+      }
+    },
+    {
+      "source": "patrol_uav_ws-patrol_planner/src/patrol_control/test/test_takeoff_xy_hold.py",
+      "destination": "patrol_uav_ws-patrol_planner/src/patrol_control/test/test_takeoff_xy_hold.py",
+      "operation": "selected F source",
+      "source_last_commit": {
+        "commit": "f79c2a82e727530f42a371dbf30805b310bbaf8f",
+        "author": "Qinling-Melon-Farmers",
+        "author_email": "xiaohuaijin@mail.nwpu.edu.cn",
+        "authored_at": "2026-10-08T00:58:49+08:00",
+        "subject": "fix: 回收已验收整机运行链并保护比赛参数"
+      }
+    },
+    {
+      "source": "patrol_uav_ws-patrol_planner/src/uav_mission/CMakeLists.txt",
+      "destination": "patrol_uav_ws-patrol_planner/src/uav_mission/CMakeLists.txt",
+      "operation": "selected F source",
+      "source_last_commit": {
+        "commit": "f79c2a82e727530f42a371dbf30805b310bbaf8f",
+        "author": "Qinling-Melon-Farmers",
+        "author_email": "xiaohuaijin@mail.nwpu.edu.cn",
+        "authored_at": "2026-10-08T00:58:49+08:00",
+        "subject": "fix: 回收已验收整机运行链并保护比赛参数"
+      }
+    },
+    {
+      "source": "patrol_uav_ws-patrol_planner/src/uav_mission/config/competition/board_load.yaml",
+      "destination": "patrol_uav_ws-patrol_planner/src/uav_mission/config/competition/board_load.yaml",
+      "operation": "selected F source",
+      "source_last_commit": {
+        "commit": "78b17e5b5c76ce0d4bb0c47a57bc18cb2f4ee4a8",
+        "author": "Qinling-Melon-Farmers",
+        "author_email": "xiaohuaijin@mail.nwpu.edu.cn",
+        "authored_at": "2026-10-03T15:59:55+08:00",
+        "subject": "feat: 接齐高位正赛独立入口并纳入现场舵机链"
+      }
+    },
+    {
+      "source": "patrol_uav_ws-patrol_planner/src/uav_mission/config/competition/control_base.yaml",
+      "destination": "patrol_uav_ws-patrol_planner/src/uav_mission/config/competition/control_base.yaml",
+      "operation": "selected F source",
+      "source_last_commit": {
+        "commit": "0dc7ccb856d9b5179abd853e809fc527237b12ed",
+        "author": "Qinling-Melon-Farmers",
+        "author_email": "xiaohuaijin@mail.nwpu.edu.cn",
+        "authored_at": "2026-10-03T20:10:40+08:00",
+        "subject": "fix: 同步投递测高尺度并适配当前入口"
+      }
+    },
+    {
+      "source": "patrol_uav_ws-patrol_planner/src/uav_mission/config/competition/known_rig.yaml",
+      "destination": "patrol_uav_ws-patrol_planner/src/uav_mission/config/competition/known_rig.yaml",
+      "operation": "selected F source",
+      "source_last_commit": {
+        "commit": "78b17e5b5c76ce0d4bb0c47a57bc18cb2f4ee4a8",
+        "author": "Qinling-Melon-Farmers",
+        "author_email": "xiaohuaijin@mail.nwpu.edu.cn",
+        "authored_at": "2026-10-03T15:59:55+08:00",
+        "subject": "feat: 接齐高位正赛独立入口并纳入现场舵机链"
+      }
+    },
+    {
+      "source": "patrol_uav_ws-patrol_planner/src/uav_mission/config/competition/mapping_high.yaml",
+      "destination": "patrol_uav_ws-patrol_planner/src/uav_mission/config/competition/mapping_high.yaml",
+      "operation": "selected F source",
+      "source_last_commit": {
+        "commit": "78b17e5b5c76ce0d4bb0c47a57bc18cb2f4ee4a8",
+        "author": "Qinling-Melon-Farmers",
+        "author_email": "xiaohuaijin@mail.nwpu.edu.cn",
+        "authored_at": "2026-10-03T15:59:55+08:00",
+        "subject": "feat: 接齐高位正赛独立入口并纳入现场舵机链"
+      }
+    },
+    {
+      "source": "patrol_uav_ws-patrol_planner/src/uav_mission/config/competition/mapping_startup.yaml",
+      "destination": "patrol_uav_ws-patrol_planner/src/uav_mission/config/competition/mapping_startup.yaml",
+      "operation": "selected F source",
+      "source_last_commit": {
+        "commit": "78b17e5b5c76ce0d4bb0c47a57bc18cb2f4ee4a8",
+        "author": "Qinling-Melon-Farmers",
+        "author_email": "xiaohuaijin@mail.nwpu.edu.cn",
+        "authored_at": "2026-10-03T15:59:55+08:00",
+        "subject": "feat: 接齐高位正赛独立入口并纳入现场舵机链"
+      }
+    },
+    {
+      "source": "patrol_uav_ws-patrol_planner/src/uav_mission/config/competition/runtime_base.yaml",
+      "destination": "patrol_uav_ws-patrol_planner/src/uav_mission/config/competition/runtime_base.yaml",
+      "operation": "selected F source",
+      "source_last_commit": {
+        "commit": "78b17e5b5c76ce0d4bb0c47a57bc18cb2f4ee4a8",
+        "author": "Qinling-Melon-Farmers",
+        "author_email": "xiaohuaijin@mail.nwpu.edu.cn",
+        "authored_at": "2026-10-03T15:59:55+08:00",
+        "subject": "feat: 接齐高位正赛独立入口并纳入现场舵机链"
+      }
+    },
+    {
+      "source": "patrol_uav_ws-patrol_planner/src/uav_mission/launch/competition_application.launch",
+      "destination": "patrol_uav_ws-patrol_planner/src/uav_mission/launch/competition_application.launch",
+      "operation": "selected F source",
+      "source_last_commit": {
+        "commit": "c4128879af1fc0283dbcf175ef2bae1a0a8cea08",
+        "author": "Qinling-Melon-Farmers",
+        "author_email": "xiaohuaijin@mail.nwpu.edu.cn",
+        "authored_at": "2026-10-05T00:45:27+08:00",
+        "subject": "fix: 对齐整机入口限高坐标与全局直线配置"
+      }
+    },
+    {
+      "source": "patrol_uav_ws-patrol_planner/src/uav_mission/launch/competition_localization.launch",
+      "destination": "patrol_uav_ws-patrol_planner/src/uav_mission/launch/competition_localization.launch",
+      "operation": "selected F source",
+      "source_last_commit": {
+        "commit": "3386365dc0c2cf99175bc66e66361a07f2cd33a8",
+        "author": "Qinling-Melon-Farmers",
+        "author_email": "xiaohuaijin@mail.nwpu.edu.cn",
+        "authored_at": "2026-10-06T18:46:23+08:00",
+        "subject": "feat: 按搜索范围生成航线并部署H整机入口"
+      }
+    },
+    {
+      "source": "patrol_uav_ws-patrol_planner/src/uav_mission/launch/competition_mapping.launch",
+      "destination": "patrol_uav_ws-patrol_planner/src/uav_mission/launch/competition_mapping.launch",
+      "operation": "selected F source",
+      "source_last_commit": {
+        "commit": "78b17e5b5c76ce0d4bb0c47a57bc18cb2f4ee4a8",
+        "author": "Qinling-Melon-Farmers",
+        "author_email": "xiaohuaijin@mail.nwpu.edu.cn",
+        "authored_at": "2026-10-03T15:59:55+08:00",
+        "subject": "feat: 接齐高位正赛独立入口并纳入现场舵机链"
+      }
+    },
+    {
+      "source": "patrol_uav_ws-patrol_planner/src/uav_mission/package.xml",
+      "destination": "patrol_uav_ws-patrol_planner/src/uav_mission/package.xml",
+      "operation": "selected F source",
+      "source_last_commit": {
+        "commit": "78b17e5b5c76ce0d4bb0c47a57bc18cb2f4ee4a8",
+        "author": "Qinling-Melon-Farmers",
+        "author_email": "xiaohuaijin@mail.nwpu.edu.cn",
+        "authored_at": "2026-10-03T15:59:55+08:00",
+        "subject": "feat: 接齐高位正赛独立入口并纳入现场舵机链"
+      }
+    },
+    {
+      "source": "patrol_uav_ws-patrol_planner/src/uav_mission/scripts/competition_supervisor.py",
+      "destination": "patrol_uav_ws-patrol_planner/src/uav_mission/scripts/competition_supervisor.py",
+      "operation": "selected F source",
+      "source_last_commit": {
+        "commit": "f79c2a82e727530f42a371dbf30805b310bbaf8f",
+        "author": "Qinling-Melon-Farmers",
+        "author_email": "xiaohuaijin@mail.nwpu.edu.cn",
+        "authored_at": "2026-10-08T00:58:49+08:00",
+        "subject": "fix: 回收已验收整机运行链并保护比赛参数"
+      }
+    },
+    {
+      "source": "patrol_uav_ws-patrol_planner/src/uav_mission/scripts/navigation_competition_manager.py",
+      "destination": "patrol_uav_ws-patrol_planner/src/uav_mission/scripts/navigation_competition_manager.py",
+      "operation": "selected F source",
+      "source_last_commit": {
+        "commit": "f79c2a82e727530f42a371dbf30805b310bbaf8f",
+        "author": "Qinling-Melon-Farmers",
+        "author_email": "xiaohuaijin@mail.nwpu.edu.cn",
+        "authored_at": "2026-10-08T00:58:49+08:00",
+        "subject": "fix: 回收已验收整机运行链并保护比赛参数"
+      }
+    },
+    {
+      "source": "patrol_uav_ws-patrol_planner/src/uav_mission/scripts/navigation_high_view_full.py",
+      "destination": "patrol_uav_ws-patrol_planner/src/uav_mission/scripts/navigation_high_view_full.py",
+      "operation": "selected F source",
+      "source_last_commit": {
+        "commit": "f79c2a82e727530f42a371dbf30805b310bbaf8f",
+        "author": "Qinling-Melon-Farmers",
+        "author_email": "xiaohuaijin@mail.nwpu.edu.cn",
+        "authored_at": "2026-10-08T00:58:49+08:00",
+        "subject": "fix: 回收已验收整机运行链并保护比赛参数"
+      }
+    },
+    {
+      "source": "patrol_uav_ws-patrol_planner/src/uav_mission/scripts/navigation_high_view_probe.py",
+      "destination": "patrol_uav_ws-patrol_planner/src/uav_mission/scripts/navigation_high_view_probe.py",
+      "operation": "selected F source",
+      "source_last_commit": {
+        "commit": "3fef95792ba7dd020acd8bccc34c0f9536951ea6",
+        "author": "Qinling-Melon-Farmers",
+        "author_email": "xiaohuaijin@mail.nwpu.edu.cn",
+        "authored_at": "2026-10-05T12:34:35+08:00",
+        "subject": "fix: 同步异步释放与高位恢复并适配现有入口"
+      }
+    },
+    {
+      "source": "patrol_uav_ws-patrol_planner/src/uav_mission/src/uav_mission/competition_config.py",
+      "destination": "patrol_uav_ws-patrol_planner/src/uav_mission/src/uav_mission/competition_config.py",
+      "operation": "selected F source",
+      "source_last_commit": {
+        "commit": "f79c2a82e727530f42a371dbf30805b310bbaf8f",
+        "author": "Qinling-Melon-Farmers",
+        "author_email": "xiaohuaijin@mail.nwpu.edu.cn",
+        "authored_at": "2026-10-08T00:58:49+08:00",
+        "subject": "fix: 回收已验收整机运行链并保护比赛参数"
+      }
+    },
+    {
+      "source": "patrol_uav_ws-patrol_planner/src/uav_mission/src/uav_mission/hardware_bag.py",
+      "destination": "patrol_uav_ws-patrol_planner/src/uav_mission/src/uav_mission/hardware_bag.py",
+      "operation": "selected F source",
+      "source_last_commit": {
+        "commit": "c182dafbffb1b3fe6b6d9412cd03cd6bcbb80f53",
+        "author": "Qinling-Melon-Farmers",
+        "author_email": "xiaohuaijin@mail.nwpu.edu.cn",
+        "authored_at": "2026-10-06T16:53:47+08:00",
+        "subject": "fix: 同步H末段POSCTL交接状态接口与导航门控"
+      }
+    },
+    {
+      "source": "patrol_uav_ws-patrol_planner/src/uav_mission/src/uav_mission/hardware_session.py",
+      "destination": "patrol_uav_ws-patrol_planner/src/uav_mission/src/uav_mission/hardware_session.py",
+      "operation": "selected F source",
+      "source_last_commit": {
+        "commit": "5479dfc579cfc47978c7b38027174ba57df9ad66",
+        "author": "Qinling-Melon-Farmers",
+        "author_email": "xiaohuaijin@mail.nwpu.edu.cn",
+        "authored_at": "2026-10-06T17:28:16+08:00",
+        "subject": "fix: 区分任务启动监视器退出日志并同步H末段报告"
+      }
+    },
+    {
+      "source": "patrol_uav_ws-patrol_planner/src/uav_mission/src/uav_mission/hardware_startup.py",
+      "destination": "patrol_uav_ws-patrol_planner/src/uav_mission/src/uav_mission/hardware_startup.py",
+      "operation": "selected F source",
+      "source_last_commit": {
+        "commit": "78b17e5b5c76ce0d4bb0c47a57bc18cb2f4ee4a8",
+        "author": "Qinling-Melon-Farmers",
+        "author_email": "xiaohuaijin@mail.nwpu.edu.cn",
+        "authored_at": "2026-10-03T15:59:55+08:00",
+        "subject": "feat: 接齐高位正赛独立入口并纳入现场舵机链"
+      }
+    },
+    {
+      "source": "patrol_uav_ws-patrol_planner/src/uav_mission/test/test_competition_release.py",
+      "destination": "patrol_uav_ws-patrol_planner/src/uav_mission/test/test_competition_release.py",
+      "operation": "selected F source",
+      "source_last_commit": {
+        "commit": "f79c2a82e727530f42a371dbf30805b310bbaf8f",
+        "author": "Qinling-Melon-Farmers",
+        "author_email": "xiaohuaijin@mail.nwpu.edu.cn",
+        "authored_at": "2026-10-08T00:58:49+08:00",
+        "subject": "fix: 回收已验收整机运行链并保护比赛参数"
+      }
+    },
+    {
+      "source": "patrol_uav_ws-patrol_planner/src/uav_mission/launch/competition_hardware.launch",
+      "destination": "patrol_uav_ws-patrol_planner/src/uav_mission/launch/competition_supervised_hardware.launch",
+      "operation": "selected F source",
+      "source_last_commit": {
+        "commit": "f79c2a82e727530f42a371dbf30805b310bbaf8f",
+        "author": "Qinling-Melon-Farmers",
+        "author_email": "xiaohuaijin@mail.nwpu.edu.cn",
+        "authored_at": "2026-10-08T00:58:49+08:00",
+        "subject": "fix: 回收已验收整机运行链并保护比赛参数"
+      }
+    },
+    {
+      "source": "patrol_uav_ws-patrol_planner/src/uav_mission/config/horizontal_planner.yaml",
+      "destination": "patrol_uav_ws-patrol_planner/src/uav_mission/config/competition/horizontal_planner.yaml",
+      "operation": "selected F source",
+      "source_last_commit": {
+        "commit": "78b17e5b5c76ce0d4bb0c47a57bc18cb2f4ee4a8",
+        "author": "Qinling-Melon-Farmers",
+        "author_email": "xiaohuaijin@mail.nwpu.edu.cn",
+        "authored_at": "2026-10-03T15:59:55+08:00",
+        "subject": "feat: 接齐高位正赛独立入口并纳入现场舵机链"
+      }
+    },
+    {
+      "source": "patrol_uav_ws-patrol_planner/src/uav_mission/config/mid360_hardware.yaml",
+      "destination": "patrol_uav_ws-patrol_planner/src/uav_mission/config/competition/mid360_hardware.yaml",
+      "operation": "selected F source",
+      "source_last_commit": {
+        "commit": "47c4a137c8c4f45773d5c99da9309e63c79af774",
+        "author": "Qinling-Melon-Farmers",
+        "author_email": "xiaohuaijin@mail.nwpu.edu.cn",
+        "authored_at": "2026-09-20T10:50:46+08:00",
+        "subject": "fix: 继承板端修复并部署三套半米每秒专项"
+      }
+    },
+    {
+      "source": "deployment/competition/build.sh",
+      "destination": "deployment/competition/build.sh",
+      "operation": "existing R planner requires quadrotor_msgs but lacks manifest dependency; explicitly include message package in build only, preserve Fast-Planner sources",
+      "source_last_commit": {
+        "commit": "f5c2e10e08c9ccba4a3a8fcaeb5eb811a1ffc6ab",
+        "author": "Qinling-Melon-Farmers",
+        "author_email": "xiaohuaijin@mail.nwpu.edu.cn",
+        "authored_at": "2026-10-05T12:11:14+08:00",
+        "subject": "fix: 补齐三线程构建与专项配置及轻量诊断录包"
+      }
+    }
+  ],
+  "preserved_existing_configuration_files": 1332,
+  "existing_hardware_entry_unchanged": true,
+  "new_hardware_launch": "competition_supervised_hardware.launch",
+  "no_EV_or_H_experiment_synced": true,
+  "no_board_connection": true,
+  "source_contributors": {
+    "note": "选择性同步引用F已验收来源及原作者；保留原分支提交历史，不squash、不改作者。",
+    "commits": [
+      {
+        "commit": "7b6ca23765ef429f33d9f433e803038028796fd3",
+        "author": "Qinling-Melon-Farmers",
+        "author_email": "xiaohuaijin@mail.nwpu.edu.cn",
+        "authored_at": "2026-10-07T16:32:22+08:00",
+        "subject": "fix: 实机投递目标降至飞控离地四十五厘米"
+      },
+      {
+        "commit": "e1da9f10f7952a6f00d85e0faa50575a25cf8520",
+        "author": "Qinling-Melon-Farmers",
+        "author_email": "xiaohuaijin@mail.nwpu.edu.cn",
+        "authored_at": "2026-10-07T20:08:44+08:00",
+        "subject": "fix: 同步后仓两千一百微秒释放标定与现场复盘"
+      },
+      {
+        "commit": "d42c5a574ecbbb254c79a4ca1c2693b789eeb8c4",
+        "author": "Qinling-Melon-Farmers",
+        "author_email": "xiaohuaijin@mail.nwpu.edu.cn",
+        "authored_at": "2026-10-07T18:50:01+08:00",
+        "subject": "fix: 留出整场搜索高度余量并锁定超限保持点"
+      },
+      {
+        "commit": "8e740f56a3455b6c29fde1e24990d739c18326b5",
+        "author": "Qinling-Melon-Farmers",
+        "author_email": "xiaohuaijin@mail.nwpu.edu.cn",
+        "authored_at": "2026-10-07T16:36:19+08:00",
+        "subject": "fix: 恢复位姿遥测并接入日志管理和舵机被动启动"
+      },
+      {
+        "commit": "fd1019ec82f34298ff4637574e403ff7157190e7",
+        "author": "Qinling-Melon-Farmers",
+        "author_email": "xiaohuaijin@mail.nwpu.edu.cn",
+        "authored_at": "2026-10-06T16:44:08+08:00",
+        "subject": "fix: H专项末段POSCTL交接联动并回放偏航日志"
+      },
+      {
+        "commit": "3cc460ba6fd076dfa8415728283c9b9f7c056aa0",
+        "author": "Qinling-Melon-Farmers",
+        "author_email": "xiaohuaijin@mail.nwpu.edu.cn",
+        "authored_at": "2026-10-06T11:52:10+08:00",
+        "subject": "feat: 更新0928现场默认与三线程定位及独立EV观察套件"
+      },
+      {
+        "commit": "b668a4e84be0876c32f193ba99eb32a699397798",
+        "author": "Qinling-Melon-Farmers",
+        "author_email": "xiaohuaijin@mail.nwpu.edu.cn",
+        "authored_at": "2026-10-07T22:13:04+08:00",
+        "subject": "docs: 记录整场实飞验收与独立正赛及卡滞恢复计划"
+      }
+    ]
+  }
+}

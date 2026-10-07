@@ -1,0 +1,29 @@
+{
+  "source_F": "f79c2a82e727530f42a371dbf30805b310bbaf8f",
+  "original_branch_head": "a0f9c9aa6e6246f1633ec7cd0c55f1c58ccb0bd3",
+  "full_build": {
+    "status": "PASS",
+    "command": "BUILD_JOBS=2 bash deployment/competition/build.sh",
+    "jobs": 2,
+    "log": "logs/competition_release_sync_20261008/build.log",
+    "scope": "WSL x86_64本地源码完整构建，不声称板端构建或本轮实飞"
+  },
+  "unit_tests": {
+    "tests_run": 61,
+    "skipped": [],
+    "failures": 0,
+    "errors": 0,
+    "pass": true,
+    "no_ROS_or_board_start": true
+  },
+  "offline_profiles": 4,
+  "actuator_mock_ctest": "PASS",
+  "CLI_help_and_preview_check": "PASS",
+  "syntax_and_diff_check": "PASS (runtime changes; byte-exact snapshot keeps inherited whitespace)",
+  "existing_configurations_unchanged": 1332,
+  "match_threads": 3,
+  "OMP_PLACES": "{4},{5},{6},{7}",
+  "EV_prediction_connected": false,
+  "new_recovery_propagated": false,
+  "ROS_simulation_or_board_started": false
+}
