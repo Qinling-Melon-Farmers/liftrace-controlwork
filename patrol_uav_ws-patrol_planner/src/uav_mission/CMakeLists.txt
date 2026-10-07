@@ -196,6 +196,8 @@ catkin_install_python(PROGRAMS
   scripts/map_camera_alignment.py
   scripts/lio_external_pose.py
   scripts/navigation_mission_start_gate.py
+  scripts/navigation_competition_manager.py
+  scripts/competition_supervisor.py
   scripts/navigation_high_view_full.py
   scripts/navigation_high_view_probe.py
   scripts/navigation_mission_manager.py
@@ -257,6 +259,8 @@ if(CATKIN_ENABLE_TESTING)
   catkin_add_nosetests(test/test_permission_revision.py)
   catkin_add_nosetests(test/test_stage_limit_retry_identity.py)
   catkin_add_nosetests(test/test_high_view_terminal_status.py)
+  catkin_add_nosetests(test/test_competition_hardware.py)
+  catkin_add_nosetests(test/test_competition_release.py)
   catkin_add_nosetests(test/test_high_view_resume.py)
   catkin_add_nosetests(test/test_probe_limit_switch.py)
   catkin_add_nosetests(test/test_h_contact_record_only.py)

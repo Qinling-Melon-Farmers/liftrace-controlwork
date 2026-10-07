@@ -1,3 +1,7 @@
+# This integrated workspace targets ROS Noetic; do not default to ROS2.
+if(NOT DEFINED ROS_EDITION)
+  set(ROS_EDITION "ROS1" CACHE STRING "ROS edition")
+endif()
 # judge which cmake codes to use 
 if(ROS_EDITION STREQUAL "ROS1")
 
@@ -91,7 +95,11 @@ if(ROS_EDITION STREQUAL "ROS1")
   set(CMAKE_CXX_EXTENSIONS OFF)
 
   ## make sure the livox_lidar_sdk_static library is installed
-  find_library(LIVOX_LIDAR_SDK_LIBRARY  liblivox_lidar_sdk_static.a    /usr/local/lib)
+  find_library(LIVOX_LIDAR_SDK_LIBRARY NAMES livox_lidar_sdk_static HINTS /usr/local/lib)
+  find_path(LIVOX_LIDAR_SDK_INCLUDE_DIR livox_lidar_api.h HINTS /usr/local/include)
+  if(NOT LIVOX_LIDAR_SDK_LIBRARY OR NOT LIVOX_LIDAR_SDK_INCLUDE_DIR)
+    message(FATAL_ERROR "Livox SDK2 is required. Install SDK2 or set LIVOX_LIDAR_SDK_LIBRARY and LIVOX_LIDAR_SDK_INCLUDE_DIR.")
+  endif()
 
   ## PCL library
   link_directories(${PCL_LIBRARY_DIRS})
@@ -149,6 +157,7 @@ if(ROS_EDITION STREQUAL "ROS1")
     ${catkin_INCLUDE_DIRS}
     ${PCL_INCLUDE_DIRS}
     ${APR_INCLUDE_DIRS}
+    ${LIVOX_LIDAR_SDK_INCLUDE_DIR}
     3rdparty
     src
   )
@@ -183,6 +192,8 @@ if(ROS_EDITION STREQUAL "ROS1")
   # end of CMakeList.txt
   #---------------------------------------------------------------------------------------
 
+
+  install(DIRECTORY config/ DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}/config)
 
 else(ROS_EDITION STREQUAL "ROS2")
 

@@ -16,7 +16,7 @@ void driver2CustomMessagePreservesPointTiming() {
   Preprocess pre;
   pre.set(false, AVIA, 0.5, 1);
   pre.N_SCANS = 4;
-  livox_ros_driver::CustomMsg::Ptr msg(new livox_ros_driver::CustomMsg);
+  livox_ros_driver2::CustomMsg::Ptr msg(new livox_ros_driver2::CustomMsg);
   msg->points.resize(5);
   msg->point_num = msg->points.size();
   // Index zero is intentionally skipped by the existing Livox preprocessor.
@@ -71,7 +71,7 @@ PointCloudXYZI::Ptr featureScan(Preprocess &pre, int lidar,
   pre.time_unit = MS;
   PointCloudXYZI::Ptr result(new PointCloudXYZI);
   if (lidar == AVIA) {
-    livox_ros_driver::CustomMsg::Ptr msg(new livox_ros_driver::CustomMsg);
+    livox_ros_driver2::CustomMsg::Ptr msg(new livox_ros_driver2::CustomMsg);
     msg->points.resize(points.size() + 1);  // Livox skips index zero.
     msg->point_num = msg->points.size();
     for (size_t i = 0; i < points.size(); ++i) {

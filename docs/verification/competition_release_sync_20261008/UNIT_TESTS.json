@@ -1,0 +1,10 @@
+{
+  "tests_run": 61,
+  "skipped": [
+    "导航仓不传播H工作台资产；独立入口不依赖board_trials"
+  ],
+  "failures": 0,
+  "errors": 0,
+  "pass": true,
+  "no_ROS_or_board_start": true
+}

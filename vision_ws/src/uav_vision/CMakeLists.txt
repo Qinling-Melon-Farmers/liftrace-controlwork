@@ -31,6 +31,8 @@ add_message_files(
   DropOffset.msg
   DropReady.msg
   ReleaseEvidence.msg
+  AlignmentTargetContext.msg
+  ReleaseEvidenceContext.msg
 )
 
 generate_messages(

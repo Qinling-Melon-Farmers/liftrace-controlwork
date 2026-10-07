@@ -1,0 +1,11 @@
+cmake_minimum_required(VERSION 3.0.2)
+project(uav_high_view)
+find_package(catkin REQUIRED)
+catkin_python_setup()
+catkin_package()
+# 导航仓仅补齐正式任务引用的共有搜索库，保留既有源码；研究工具由原分支维护。
+if(CATKIN_ENABLE_TESTING)
+  catkin_add_nosetests(test/test_core.py)
+  catkin_add_nosetests(test/test_navigation_memory.py)
+  catkin_add_nosetests(test/test_local_descent.py)
+endif()
