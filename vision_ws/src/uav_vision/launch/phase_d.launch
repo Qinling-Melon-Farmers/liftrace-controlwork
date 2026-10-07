@@ -17,6 +17,8 @@
   <arg name="allow_latest_tf_fallback" default="false" />
   <arg name="max_latest_tf_age_sec" default="0.10" />
   <arg name="default_align_mode" default="disabled" />
+  <arg name="require_alignment_context" default="false" />
+  <arg name="require_compensated_alignment" default="$(arg require_alignment_context)" />
   <arg name="drop_stable_frames" default="3" />
   <arg name="start_legacy_compat" default="true" />
 
@@ -88,6 +90,8 @@
   <!-- 投递对准 -->
   <node pkg="uav_vision" type="drop_aligner.py" name="drop_aligner" output="screen">
     <rosparam file="$(find uav_vision)/config/drop_aligner.yaml"/>
+    <param name="require_alignment_context" value="$(arg require_alignment_context)" />
+    <param name="require_compensated_alignment" value="$(arg require_compensated_alignment)" />
     <param name="camera_info_topic" value="$(arg camera_info_topic)" />
     <param name="stable_frames" value="$(arg drop_stable_frames)" />
   </node>

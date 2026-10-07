@@ -1,0 +1,29 @@
+{
+  "success": true,
+  "tests_run": 29,
+  "passed": 26,
+  "skipped": [
+    {
+      "test": "test_site_override_only_applies_to_h_modes (slot_offline_0.LowHConfigTests)",
+      "reason": "本导航分支无 board_trials；由 B/导航板端参考覆盖，待执行对应测试"
+    },
+    {
+      "test": "test_three_h_trial_templates_keep_auto_land_isolated (slot_offline_0.LowHConfigTests)",
+      "reason": "本导航分支无 board_trials；由 B/导航板端参考覆盖，待执行对应测试"
+    },
+    {
+      "test": "test_competition_h_profile_does_not_change_stage_or_global_defaults (slot_offline_2.CompetitionTests)",
+      "reason": "导航仓不传播H工作台资产；独立入口不依赖board_trials"
+    }
+  ],
+  "failures": [],
+  "errors": [],
+  "test_files": [
+    "patrol_uav_ws-patrol_planner/src/uav_mission/test/test_landing_posctl_config.py",
+    "patrol_uav_ws-patrol_planner/src/uav_mission/test/test_slot_h_entry_wiring.py",
+    "patrol_uav_ws-patrol_planner/src/uav_mission/test/test_competition_hardware.py"
+  ],
+  "ros_started": false,
+  "cpp_compiled": false,
+  "full_build_run": false
+}

@@ -29,6 +29,7 @@ add_message_files(
   TargetCandidate.msg
   TargetCandidateArray.msg
   DropOffset.msg
+  DropAlignmentFeedback.msg
   DropReady.msg
   ReleaseEvidence.msg
   AlignmentTargetContext.msg
@@ -92,6 +93,7 @@ add_dependencies(circle_detector_node
 )
 
 if(CATKIN_ENABLE_TESTING)
+  catkin_add_nosetests(test/test_compensated_drop_alignment.py)
   catkin_add_gtest(h_stroke_detector_test test/h_stroke_detector_test.cpp)
   if(TARGET h_stroke_detector_test)
     target_link_libraries(h_stroke_detector_test ${OpenCV_LIBRARIES})
