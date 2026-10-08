@@ -11,3 +11,5 @@
 验证：本feature实际生产速度提取10项、H桥接16项及diff检查通过；共用整机候选F与板端候选B视觉/导航完整build及控制142项通过，不能写成本feature独立整包构建。恢复core34/map31/gate9和其它集成验证见视觉仓docs/verification/flight_candidate_simplification_20261008/REPORT.md。B保留原pwm实体包缺失测试的skip；不以跳过代替真实板端链路。
 
 本轮不上板、不运行ROS/SITL、不修改main。本地接口适配已得到用户“本轮一起适配，暂不上板”授权；动态恢复和同场耗时对照待新授权。
+
+视觉权威来源revision已确定：`https://github.com/Qinling-Melon-Farmers/liftrace-visionwork.git`，`feat/r2026-competition-integrated` / `87fb2726cd3a2078b5ee32a2d448bdaae7f9ee70`；本仓正式drop_aligner两文件与该revision一致，仅记录来源，不在两仓分别演化。
