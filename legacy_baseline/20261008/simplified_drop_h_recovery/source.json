@@ -1,0 +1,5 @@
+{
+  "source_commit": "ec672fe84ac6ee3f834ac8f4e4f914f7e86d34fa",
+  "purpose": "protected pre-change production control from committed revision; local simplification and bounded recovery integration",
+  "file_count": 56
+}
